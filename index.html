@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Comment Harvester for KH Coder</title>
+  <meta name="description" content="YouTube動画・コメントを収集しKH Coder用CSV/TSVで出力するデータ収集ツール" />
+
+  <!-- Fonts (IBM Plex Sans, JetBrains Mono, Noto Sans JP) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- JSZip (for ZIP generation) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+          integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Header
+     ═══════════════════════════════════════════════════════════ -->
+<header class="app-header">
+  <div class="header-brand">
+    <!-- YouTube logo mark -->
+    <svg class="header-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/>
+    </svg>
+    <span class="header-title" data-i18n="app_title">YouTube Comment Harvester for KH Coder</span>
+    <span class="header-version">v0.1.0</span>
+  </div>
+  <div class="header-controls">
+    <button class="icon-btn" id="theme-toggle" aria-label="Switch theme">
+      <span class="theme-icon">○</span>
+    </button>
+    <button class="icon-btn" id="lang-toggle" title="Switch language">EN</button>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Main content
+     ═══════════════════════════════════════════════════════════ -->
+<main class="app-main">
+
+  <!-- ── Resume banner ─────────────────────────────────────── -->
+  <div id="resume-section" class="resume-banner" hidden>
+    <div>
+      <div class="resume-banner-label" data-i18n="resume_available">前回の途中データがあります</div>
+    </div>
+    <div class="resume-banner-actions">
+      <button class="btn btn-primary btn-sm" id="resume-btn" data-i18n="resume_btn">途中から再開</button>
+      <button class="btn btn-ghost btn-sm btn-danger" id="discard-saved-btn" data-i18n="discard_saved">保存データを破棄</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════
+       SECTION 1: Search conditions & settings
+       ════════════════════════════════════════════════════════ -->
+  <div id="search-section" class="section">
+
+    <!-- Search conditions card -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title" data-i18n="section_search">検索条件</span>
+        <div class="toolbar">
+          <button class="btn btn-ghost btn-sm" id="export-conditions-btn" data-i18n="export_conditions">条件をエクスポート</button>
+          <button class="btn btn-ghost btn-sm" id="import-conditions-btn" data-i18n="import_conditions">条件をインポート</button>
+          <input type="file" id="import-conditions-input" accept=".json" style="display:none" />
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="conditions-container"></div>
+        <div class="mt-8">
+          <button class="btn btn-secondary btn-sm" id="add-condition-btn" data-i18n="add_condition">＋ 検索条件を追加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings card -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title" data-i18n="section_settings">収集設定</span>
+      </div>
+      <div class="card-body">
+        <div class="settings-grid">
+
+          <!-- Date range -->
+          <div class="settings-row full">
+            <label class="field-label" data-i18n="date_range">期間</label>
+            <div class="date-row">
+              <div>
+                <label class="field-label text-xs" for="date-start" data-i18n="date_start">開始日</label>
+                <input type="date" id="date-start" class="field-input" />
+              </div>
+              <div>
+                <label class="field-label text-xs" for="date-end" data-i18n="date_end">終了日</label>
+                <input type="date" id="date-end" class="field-input" />
+              </div>
+            </div>
+            <!-- Period split -->
+            <div class="mt-8">
+              <label class="checkbox-label">
+                <input type="checkbox" id="split-period-toggle" />
+                <span data-i18n="split_period">期間を分割して取得する（1クエリ500件制限を回避）</span>
+              </label>
+            </div>
+            <div id="split-options" class="split-options mt-4" hidden>
+              <label class="field-label" data-i18n="split_unit">分割単位</label>
+              <select id="split-unit-select" class="field-select" style="width:200px">
+                <option value="day"     data-i18n="split_day">日</option>
+                <option value="week"    data-i18n="split_week">週</option>
+                <option value="month" selected data-i18n="split_month">月</option>
+                <option value="quarter" data-i18n="split_quarter">四半期</option>
+                <option value="year"    data-i18n="split_year">年</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Language -->
+          <div class="settings-row">
+            <label class="field-label" for="language-select" data-i18n="language">収集対象言語</label>
+            <select id="language-select" class="field-select">
+              <option value="ja"   data-i18n="lang_ja">日本語のみ</option>
+              <option value="en"   data-i18n="lang_en">英語のみ</option>
+              <option value="both" selected data-i18n="lang_both">日本語・英語（別ファイルに出力）</option>
+            </select>
+          </div>
+
+          <!-- Comment limit -->
+          <div class="settings-row">
+            <label class="field-label" for="comments-limit-select" data-i18n="comment_limit">1動画あたりのコメント取得数</label>
+            <select id="comments-limit-select" class="field-select">
+              <option value="100"  data-i18n="limit_100">100件</option>
+              <option value="500"  data-i18n="limit_500">500件</option>
+              <option value="1000" data-i18n="limit_1000">1000件</option>
+              <option value="5000" data-i18n="limit_5000">5000件</option>
+              <option value="unlimited" selected data-i18n="limit_unlimited">制限なし（全件）</option>
+            </select>
+            <div id="limit-unlimited-warning" class="warning-banner mt-4">
+              <span>⚠</span>
+              <span data-i18n="limit_unlimited_warning">「制限なし」選択中：コメント数の多い動画ではAPIクォータを大量消費します</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Quota estimate -->
+        <div class="quota-estimate mt-12">
+          <div class="quota-label">
+            <span data-i18n="quota_estimate">クォータ消費見積り:</span>
+            <strong id="quota-estimate-value">—</strong>
+            <span data-i18n="quota_daily_limit">/ 10,000（1日上限）</span>
+          </div>
+          <div class="quota-bar-track">
+            <div id="quota-estimate-bar" class="quota-bar-fill"></div>
+          </div>
+        </div>
+
+      </div>
+      <div class="card-footer" style="display:flex; justify-content:flex-end; gap:8px">
+        <button class="btn btn-ghost btn-sm" id="clear-saved-btn" data-i18n="clear_saved_data">保存データを削除</button>
+        <button class="btn btn-start" id="start-btn" data-i18n="start_collection">収集を開始</button>
+      </div>
+    </div>
+
+  </div><!-- /search-section -->
+
+  <!-- ════════════════════════════════════════════════════════
+       SECTION 2: Progress
+       ════════════════════════════════════════════════════════ -->
+  <div id="progress-section" class="section" hidden>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title" data-i18n="section_progress">収集中...</span>
+        <div class="flex-center gap-6">
+          <div class="spinner" aria-hidden="true"></div>
+          <span class="progress-pct text-accent text-mono" id="progress-pct">0%</span>
+        </div>
+      </div>
+      <div class="card-body">
+
+        <!-- Progress bar -->
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="progress-bar" role="progressbar"
+               aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+
+        <!-- Current task -->
+        <div class="current-task text-mono" id="stat-current">—</div>
+
+        <!-- Stats grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label" data-i18n="progress_quota">クォータ消費</div>
+            <div class="stat-value" id="stat-quota">0</div>
+            <div class="stat-sub">/ 10,000</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label" data-i18n="progress_elapsed">経過時間</div>
+            <div class="stat-value" id="stat-elapsed">00:00</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label" data-i18n="progress_remaining">推定残り</div>
+            <div class="stat-value" id="stat-remaining">--:--</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label" data-i18n="progress_videos">動画数</div>
+            <div class="stat-value">
+              <span id="stat-videos-ja">0</span>
+              <span class="text-dim text-xs"> JA /</span>
+              <span id="stat-videos-en">0</span>
+              <span class="text-dim text-xs"> EN</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label" data-i18n="progress_comments">コメント数</div>
+            <div class="stat-value">
+              <span id="stat-comments-ja">0</span>
+              <span class="text-dim text-xs"> JA</span>
+            </div>
+            <div class="stat-sub">
+              <span id="stat-comments-en">0</span> EN /
+              <span id="stat-comments-unknown">0</span>
+              <span class="text-xs" data-i18n="progress_unknown"> 不明</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="progress-actions">
+          <button class="btn btn-secondary" id="pause-resume-btn" data-i18n="pause_btn">一時停止</button>
+          <button class="btn btn-ghost btn-danger" id="abort-btn" data-i18n="abort_btn">中断</button>
+        </div>
+
+        <!-- Log panel -->
+        <div class="log-panel">
+          <div class="log-header" id="log-header">
+            <span class="log-arrow" id="log-arrow">▶</span>
+            <span data-i18n="log_title">詳細ログ（クリックで展開）</span>
+            <button class="btn btn-ghost btn-xs" id="log-copy-btn"
+                    style="margin-left:auto" data-i18n="log_copy"
+                    onclick="event.stopPropagation()">ログをコピー</button>
+          </div>
+          <div class="log-entries" id="log-entries" hidden></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /progress-section -->
+
+  <!-- ════════════════════════════════════════════════════════
+       SECTION 3: Download / Complete
+       ════════════════════════════════════════════════════════ -->
+  <div id="download-section" class="section" hidden>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title" data-i18n="section_download">収集完了</span>
+      </div>
+      <div class="card-body" style="text-align:center">
+
+        <div class="download-complete-icon" aria-hidden="true">✓</div>
+        <h2 class="mb-8" data-i18n="download_summary">収集結果サマリー</h2>
+
+        <div class="download-stats">
+          <div class="stat-card">
+            <div class="stat-label" data-i18n="download_total_videos">動画総数</div>
+            <div class="stat-value" id="dl-stat-videos">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label" data-i18n="download_total_comments">コメント総数</div>
+            <div class="stat-value" id="dl-stat-comments">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label" data-i18n="download_quota">消費クォータ</div>
+            <div class="stat-value" id="dl-stat-quota">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label" data-i18n="download_elapsed">収集時間</div>
+            <div class="stat-value" id="dl-stat-elapsed">—</div>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px; align-items:center; margin-top:16px">
+          <button class="btn btn-primary" id="download-btn" style="min-width:200px" data-i18n="download_zip">ZIPをダウンロード</button>
+          <button class="btn btn-ghost btn-sm" id="new-collection-btn" data-i18n="download_new_collection">新しい収集を開始</button>
+        </div>
+
+        <!-- Log panel in download section too -->
+        <div class="log-panel mt-12" style="text-align:left">
+          <div class="log-header" id="log-header-dl"
+               onclick="const e=document.getElementById('log-entries-dl');const a=document.getElementById('log-arrow-dl');e.hidden=!e.hidden;a.textContent=e.hidden?'▶':'▼'">
+            <span class="log-arrow" id="log-arrow-dl">▶</span>
+            <span data-i18n="log_title">詳細ログ（クリックで展開）</span>
+          </div>
+          <div class="log-entries" id="log-entries-dl" hidden></div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /download-section -->
+
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL: API key input
+     ═══════════════════════════════════════════════════════════ -->
+<div id="api-key-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="api-key-modal-title">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="api-key-modal-title" data-i18n="api_key_modal_title">YouTube Data API キー入力</h2>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc" data-i18n="api_key_modal_desc">Google Cloud ConsoleでAPIキーを取得してください。キーはこのセッション中のみメモリに保持され、どこにも保存されません。</p>
+      <form id="api-key-form">
+        <label class="field-label" for="api-key-input">API Key</label>
+        <div class="input-with-btn">
+          <input type="password" id="api-key-input" class="field-input"
+                 data-i18n="api_key_placeholder" data-i18n-attr="placeholder"
+                 autocomplete="off" spellcheck="false" />
+          <button type="button" class="btn btn-ghost btn-sm" id="api-key-toggle-vis" data-i18n="api_key_show">表示</button>
+        </div>
+        <div id="api-key-error" class="field-error" hidden></div>
+        <div class="api-key-note mt-8" data-i18n="api_key_referrer_note">
+          ※ セキュリティのため、HTTPリファラ制限付きキーの使用を推奨します（READMEを参照）
+        </div>
+        <div class="api-key-howto mt-4">
+          <a href="https://developers.google.com/youtube/v3/getting-started" target="_blank" rel="noopener noreferrer" data-i18n="api_key_howto">APIキーの取得方法 →</a>
+        </div>
+        <div class="mt-12">
+          <button type="submit" id="api-key-submit-btn" class="btn btn-primary btn-full" data-i18n="api_key_verify">APIキーを確認して開始</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL: Abort options
+     ═══════════════════════════════════════════════════════════ -->
+<div id="abort-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="abort-modal-title" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="abort-modal-title" data-i18n="abort_modal_title">収集を中断しますか？</h2>
+    </div>
+    <div class="modal-body">
+      <div class="option-list">
+        <button class="option-btn option-primary" id="abort-download-btn">
+          <span class="option-icon">⬇</span>
+          <span data-i18n="abort_option_download">ここまでのデータをZIPで出力</span>
+        </button>
+        <button class="option-btn" id="abort-save-btn">
+          <span class="option-icon">💾</span>
+          <span data-i18n="abort_option_save">再開可能な状態で保存（IndexedDB）</span>
+        </button>
+        <button class="option-btn option-danger" id="abort-discard-btn">
+          <span class="option-icon">✕</span>
+          <span data-i18n="abort_option_discard">破棄して終了</span>
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="abort-cancel-btn" data-i18n="abort_cancel">キャンセル（収集を続ける）</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL: Quota exceeded
+     ═══════════════════════════════════════════════════════════ -->
+<div id="quota-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="quota-modal-title" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="quota-modal-title" data-i18n="quota_modal_title">APIクォータ超過</h2>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc" data-i18n="quota_modal_desc">本日のYouTube Data APIクォータ（10,000ユニット/日）を超過しました。クォータはUTC 0:00にリセットされます。</p>
+      <div class="option-list">
+        <button class="option-btn option-primary" id="quota-download-btn">
+          <span class="option-icon">⬇</span>
+          <span data-i18n="quota_option_download">今すぐZIPで出力して終了</span>
+        </button>
+        <button class="option-btn" id="quota-save-btn">
+          <span class="option-icon">💾</span>
+          <span data-i18n="quota_option_save">翌日のクォータリセット後に再開するため保存</span>
+        </button>
+        <button class="option-btn" id="quota-newkey-btn">
+          <span class="option-icon">🔑</span>
+          <span data-i18n="quota_option_newkey">別のAPIキーで続行</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL: IndexedDB consent
+     ═══════════════════════════════════════════════════════════ -->
+<div id="consent-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="consent-modal-title" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="consent-modal-title" data-i18n="consent_modal_title">ローカルデータ保存の確認</h2>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc" data-i18n="consent_modal_body">収集途中のYouTubeコメントデータ（投稿者表示名・コメント本文・チャンネルID等）が、あなたのブラウザのローカルストレージ（IndexedDB）に一時保存されます。本データは外部に送信されず、本ツール以外からアクセスされません。収集完了またはブラウザのキャッシュクリアで削除されます。</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="consent-deny-btn" data-i18n="consent_deny">拒否（保存なし）</button>
+      <button class="btn btn-primary" id="consent-agree-btn" data-i18n="consent_agree">同意して保存を有効化</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     MODAL: Related terms dictionary editor
+     ═══════════════════════════════════════════════════════════ -->
+<div id="dict-editor-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="dict-editor-title" hidden>
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h2 class="modal-title" id="dict-editor-title" data-i18n="related_terms_editor_title">関連語辞書</h2>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc text-sm" data-i18n="related_terms_editor_desc">各行: キーワード → 関連語（カンマ区切り）。変更はlocalStorageに保存されます。</p>
+      <label class="field-label" for="dict-editor-textarea">辞書内容（キーワード: 関連語1, 関連語2, ...）</label>
+      <textarea id="dict-editor-textarea" class="field-input" rows="12"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost btn-sm btn-danger" id="dict-reset-btn" data-i18n="related_terms_reset">デフォルトに戻す</button>
+      <button class="btn btn-secondary" id="dict-cancel-btn" data-i18n="related_terms_cancel">キャンセル</button>
+      <button class="btn btn-primary" id="dict-save-btn" data-i18n="related_terms_save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     Scripts
+     ═══════════════════════════════════════════════════════════ -->
+<script type="module" src="js/main.js"></script>
+
+</body>
+</html>

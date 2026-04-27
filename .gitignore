@@ -1,0 +1,26 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local notes (not for repo)
+notes.md
+NOTES.md
+scratch.*
+
+# Downloaded ZIP outputs (these should not be committed)
+yt-harvest_*.zip
+
+# node_modules (if ever added for dev tooling)
+node_modules/
+
+# Environment files
+.env
+.env.local

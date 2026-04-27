@@ -1,0 +1,18 @@
+{
+  "自動運転": ["自律走行", "レベル4", "レベル5", "ロボタクシー", "ハンズオフ", "Tesla FSD", "Waymo", "Cruise", "ADAS", "自動化"],
+  "self-driving": ["autonomous driving", "robotaxi", "Tesla FSD", "Waymo", "level 4", "level 5", "hands-off", "ADAS", "autopilot"],
+  "事故": ["衝突", "クラッシュ", "死亡事故", "危険", "トラブル", "リコール", "誤作動"],
+  "accident": ["crash", "collision", "death", "danger", "recall", "malfunction", "incident"],
+  "Tesla": ["テスラ", "Model S", "Model 3", "Model X", "Model Y", "FSD", "Autopilot", "イーロン・マスク"],
+  "Waymo": ["ウェイモ", "Google", "Alphabet", "robotaxi", "Jaguar I-PACE"],
+  "安全": ["safety", "セーフティ", "リスク", "保険", "規制", "法律", "倫理"],
+  "safety": ["安全", "risk", "insurance", "regulation", "ethics", "liability"],
+  "技術": ["テクノロジー", "AI", "機械学習", "センサー", "LiDAR", "カメラ", "ソフトウェア"],
+  "technology": ["AI", "machine learning", "sensor", "LiDAR", "camera", "software", "algorithm"],
+  "Uber": ["Lyft", "ライドシェア", "ride-sharing", "旅客輸送"],
+  "GM": ["Cruise", "Chevrolet", "General Motors", "ボルト"],
+  "Toyota": ["トヨタ", "レクサス", "Lexus", "Guardian"],
+  "Honda": ["ホンダ", "Legend", "レジェンド", "Sensing"],
+  "規制": ["法律", "ガイドライン", "国土交通省", "道路交通法", "認可"],
+  "regulation": ["law", "policy", "guideline", "NHTSA", "NTSB", "DMV", "approval"]
+}
