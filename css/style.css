@@ -71,7 +71,7 @@
 /* ── Reset ──────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { font-size: 14px; scroll-behavior: smooth; }
+html { font-size: 20px; scroll-behavior: smooth; }
 
 body {
   font-family: var(--font-sans);
@@ -475,7 +475,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .date-mode-seg input[type=radio] { display: none; }
 .date-mode-seg label {
   padding: 4px 12px;
-  font-size: 30px;
+  font-size: 1rem;
   cursor: pointer;
   color: var(--text-secondary);
   background: var(--bg-surface);
