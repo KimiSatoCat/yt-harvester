@@ -182,7 +182,7 @@ function updateQuotaEstimateDisplay() {
   const conditions = getActiveConditions();
   const splitPeriod = document.getElementById('split-period-toggle')?.checked;
   const splitUnit   = document.getElementById('split-unit-select')?.value || 'month';
-  const langVal     = document.getElementById('language-select')?.value || 'both';
+  const langVal     = document.getElementById('language-select')?.value || 'ja';
   const limitVal    = document.getElementById('comments-limit-select')?.value || 'unlimited';
   const dateStart   = document.getElementById('date-start')?.value;
   const dateEnd     = document.getElementById('date-end')?.value;
@@ -193,7 +193,7 @@ function updateQuotaEstimateDisplay() {
     periods = generated.length;
   }
 
-  const numLangs = langVal === 'both' ? 2 : 1;
+  const numLangs = 1;
   const commentsPerVideo = limitVal === 'unlimited' ? 500 : parseInt(limitVal) || 100;
 
   const estimate = estimateQuota({
@@ -860,8 +860,7 @@ function restoreUIFromSettings(settings) {
   if (settings.splitUnit)
     document.getElementById('split-unit-select').value = settings.splitUnit;
   if (settings.languages) {
-    const langVal = settings.languages.length === 2 ? 'both'
-      : settings.languages[0] === 'ja' ? 'ja' : 'en';
+    const langVal = settings.languages[0] === 'en' ? 'en' : 'ja';
     document.getElementById('language-select').value = langVal;
   }
 
@@ -967,7 +966,7 @@ async function importConditions(e) {
     }
     if (data.splitUnit) document.getElementById('split-unit-select').value = data.splitUnit;
     if (data.languages) {
-      const val = data.languages.length === 2 ? 'both' : data.languages[0];
+      const val = data.languages[0] === 'en' ? 'en' : 'ja';
       document.getElementById('language-select').value = val;
     }
     updateQuotaEstimateDisplay();
@@ -1013,9 +1012,7 @@ function toggleLog() {
 
 function getSelectedLanguages() {
   const val = document.getElementById('language-select').value;
-  if (val === 'ja')   return ['ja'];
-  if (val === 'en')   return ['en'];
-  return ['ja', 'en'];
+  return val === 'en' ? ['en'] : ['ja'];
 }
 
 function getCommentLimit() {
