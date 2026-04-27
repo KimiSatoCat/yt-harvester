@@ -458,6 +458,37 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .settings-row { display: flex; flex-direction: column; gap: 4px; }
 .settings-row.full { grid-column: 1 / -1; }
 
+.date-range-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.date-range-header .field-label { margin-bottom: 0; }
+
+.date-mode-seg {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.date-mode-seg input[type=radio] { display: none; }
+.date-mode-seg label {
+  padding: 4px 12px;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  transition: background 0.15s, color 0.15s;
+  user-select: none;
+  white-space: nowrap;
+}
+.date-mode-seg input[type=radio]:checked + label {
+  background: var(--accent);
+  color: #000;
+  font-weight: 500;
+}
+
 .date-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

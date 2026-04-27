@@ -89,8 +89,17 @@
 
           <!-- Date range -->
           <div class="settings-row full">
-            <label class="field-label" data-i18n="date_range">期間</label>
-            <div class="date-row">
+            <div class="date-range-header">
+              <label class="field-label" data-i18n="date_range">期間</label>
+              <div class="date-mode-seg">
+                <input type="radio" name="date-mode" id="date-mode-calendar" value="calendar" checked />
+                <label for="date-mode-calendar" data-i18n="date_mode_calendar">カレンダー</label>
+                <input type="radio" name="date-mode" id="date-mode-year" value="year" />
+                <label for="date-mode-year" data-i18n="date_mode_year">年指定</label>
+              </div>
+            </div>
+            <!-- Calendar inputs -->
+            <div id="date-calendar-row" class="date-row">
               <div>
                 <label class="field-label text-xs" for="date-start" data-i18n="date_start">開始日</label>
                 <input type="date" id="date-start" class="field-input" />
@@ -98,6 +107,17 @@
               <div>
                 <label class="field-label text-xs" for="date-end" data-i18n="date_end">終了日</label>
                 <input type="date" id="date-end" class="field-input" />
+              </div>
+            </div>
+            <!-- Year selects -->
+            <div id="date-year-row" class="date-row" hidden>
+              <div>
+                <label class="field-label text-xs" for="year-start" data-i18n="date_start_year">開始年</label>
+                <select id="year-start" class="field-select"></select>
+              </div>
+              <div>
+                <label class="field-label text-xs" for="year-end" data-i18n="date_end_year">終了年</label>
+                <select id="year-end" class="field-select"></select>
               </div>
             </div>
             <!-- Period split -->

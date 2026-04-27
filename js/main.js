@@ -77,6 +77,7 @@ async function init() {
   await loadRelatedTermsDict();
 
   setupGlobalEventListeners();
+  initDateModeToggle();
   addSearchConditionRow(); // Start with one row
 
   // Check for saved state
@@ -115,6 +116,50 @@ function saveRelatedTermsDict(dict) {
   // Refresh all suggestion chips
   document.querySelectorAll('.condition-row').forEach(row => {
     updateSuggestionChips(row, relatedTermsDict);
+  });
+}
+
+// ──────────────────────────────────────────────────────────
+// Date mode toggle (calendar / year)
+// ──────────────────────────────────────────────────────────
+
+function initDateModeToggle() {
+  const currentYear = new Date().getFullYear();
+  const startSel = document.getElementById('year-start');
+  const endSel   = document.getElementById('year-end');
+
+  // Build year options 2005 → current year
+  for (let y = currentYear; y >= 2005; y--) {
+    const o1 = document.createElement('option');
+    o1.value = o1.textContent = y;
+    startSel.appendChild(o1);
+    const o2 = document.createElement('option');
+    o2.value = o2.textContent = y;
+    endSel.appendChild(o2);
+  }
+  // Default: start = last year, end = current year
+  startSel.value = currentYear - 1;
+  endSel.value   = currentYear;
+
+  function syncYearToDates() {
+    const sy = parseInt(startSel.value);
+    const ey = parseInt(endSel.value);
+    if (sy > ey) endSel.value = sy;
+    document.getElementById('date-start').value = `${Math.min(sy, ey)}-01-01`;
+    document.getElementById('date-end').value   = `${Math.max(sy, ey)}-12-31`;
+    updateQuotaEstimateDisplay();
+  }
+
+  startSel.addEventListener('change', syncYearToDates);
+  endSel.addEventListener('change', syncYearToDates);
+
+  document.querySelectorAll('input[name="date-mode"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const isYear = radio.value === 'year' && radio.checked;
+      document.getElementById('date-calendar-row').hidden = isYear;
+      document.getElementById('date-year-row').hidden     = !isYear;
+      if (isYear) syncYearToDates();
+    });
   });
 }
 
