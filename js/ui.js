@@ -84,46 +84,48 @@ function createSearchConditionRow(data = null, callbacks = {}) {
   row.className = 'condition-row';
   row.dataset.idx = idx;
 
+  // Use t() for initial text so labels render immediately even before DOM insertion.
+  // data-i18n attributes are kept so language-switching updates them correctly.
   row.innerHTML = `
     <div class="condition-header">
-      <span class="condition-label" data-i18n="condition_label"></span>
+      <span class="condition-label" data-i18n="condition_label">${t('condition_label')}</span>
       <span class="condition-num">${idx}</span>
       <div class="condition-actions">
-        <button class="btn-ghost btn-sm condition-duplicate" type="button" data-i18n="condition_duplicate"></button>
-        <button class="btn-ghost btn-sm btn-danger condition-delete" type="button" data-i18n="condition_delete"></button>
+        <button class="btn-ghost btn-sm condition-duplicate" type="button" data-i18n="condition_duplicate">${t('condition_duplicate')}</button>
+        <button class="btn-ghost btn-sm btn-danger condition-delete" type="button" data-i18n="condition_delete">${t('condition_delete')}</button>
       </div>
     </div>
     <div class="condition-body">
-      <label class="field-label" data-i18n="must_label"></label>
+      <label class="field-label" data-i18n="must_label">${t('must_label')}</label>
       <input class="field-input must-input" type="text"
              data-i18n="must_placeholder" data-i18n-attr="placeholder"
+             placeholder="${t('must_placeholder')}"
              autocomplete="off" spellcheck="false" />
       <div class="suggestions-row">
-        <span class="suggestions-label" data-i18n="related_terms"></span>
+        <span class="suggestions-label" data-i18n="related_terms">${t('related_terms')}</span>
         <div class="suggestions-chips"></div>
-        <button class="btn-ghost btn-xs edit-dict-btn" type="button" data-i18n="edit_related_terms"></button>
+        <button class="btn-ghost btn-xs edit-dict-btn" type="button" data-i18n="edit_related_terms">${t('edit_related_terms')}</button>
       </div>
 
-      <label class="field-label" data-i18n="any_label"></label>
+      <label class="field-label" data-i18n="any_label">${t('any_label')}</label>
       <input class="field-input any-input" type="text"
              data-i18n="any_placeholder" data-i18n-attr="placeholder"
+             placeholder="${t('any_placeholder')}"
              autocomplete="off" spellcheck="false" />
 
-      <label class="field-label" data-i18n="not_label"></label>
+      <label class="field-label" data-i18n="not_label">${t('not_label')}</label>
       <input class="field-input not-input" type="text"
              data-i18n="not_placeholder" data-i18n-attr="placeholder"
+             placeholder="${t('not_placeholder')}"
              autocomplete="off" spellcheck="false" />
     </div>
     <div class="condition-footer">
       <label class="checkbox-label">
         <input class="condition-enabled" type="checkbox" checked />
-        <span data-i18n="condition_enable"></span>
+        <span data-i18n="condition_enable">${t('condition_enable')}</span>
       </label>
     </div>
   `;
-
-  // Apply translations to new row
-  applyTranslations();
 
   // Populate if data provided
   if (data) {
