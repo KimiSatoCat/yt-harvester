@@ -212,13 +212,6 @@ function formatDuration(seconds) {
 }
 
 function updateProgressUI(progress) {
-  const pct = progress.total > 0
-    ? Math.min(Math.round((progress.done / progress.total) * 100), 99)
-    : 0;
-
-  setTextContent('progress-pct', `${pct}%`);
-  setProgressBar('progress-bar', pct);
-
   setTextContent('stat-quota',
     `${(progress.quotaUsed || 0).toLocaleString()} / 10,000`);
 
