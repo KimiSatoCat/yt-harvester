@@ -372,7 +372,13 @@ function setupGlobalEventListeners() {
   document.getElementById('download-btn')
     .addEventListener('click', downloadResults);
 
-  // New collection
+  // Home button (keep conditions, just go back to search screen)
+  document.getElementById('home-btn')
+    .addEventListener('click', () => {
+      showSection('search-section');
+    });
+
+  // New collection (resets progress, goes back to search screen)
   document.getElementById('new-collection-btn')
     .addEventListener('click', () => {
       showSection('search-section');
@@ -665,6 +671,17 @@ async function collectForConditionPeriodLang(api, condition, period, lang, signa
     const rawVideos = await api.getVideoDetails(newVideoIds, signal);
     for (const raw of rawVideos) {
       const normalized = normalizeVideo(raw, lang);
+
+      // Strict language filter: skip if detected language is a different known language
+      const det    = normalized.video_language_detected;
+      const ytLang = (normalized.default_language || normalized.default_audio_language || '').slice(0, 2);
+      const keep   = det === lang
+        || (det === 'unknown' && (ytLang === lang || ytLang === ''));
+      if (!keep) {
+        addLog(`Skip video ${normalized.video_id}: detected=${det}, yt=${ytLang} (target=${lang})`, 'debug');
+        continue;
+      }
+
       APP.results.videoCache.set(normalized.video_id, normalized);
       APP.results.videos[lang].push(normalized);
       if (lang === 'ja') APP.progress.videosJa++;
@@ -717,18 +734,25 @@ async function fetchAndStoreComments(api, videoId, lang, signal) {
       if (top && !APP.results.commentCache.has(top.id)) {
         const normalized = normalizeComment(top, videoId, null, now);
         normalized.reply_count = thread.snippet?.totalReplyCount || 0;
-        APP.results.commentCache.add(top.id);
-        APP.results.comments[lang].push(normalized);
-        incrementCommentCount(lang, normalized.comment_language_detected);
+        const det = normalized.comment_language_detected;
+        // Keep only target-language comments; allow 'unknown' (emojis, very short text)
+        if (det === lang || det === 'unknown') {
+          APP.results.commentCache.add(top.id);
+          APP.results.comments[lang].push(normalized);
+          incrementCommentCount(lang, det);
+        }
       }
 
       // Replies
       for (const reply of replies) {
         if (!APP.results.commentCache.has(reply.id)) {
           const normalized = normalizeComment(reply, videoId, top?.id, now);
-          APP.results.commentCache.add(reply.id);
-          APP.results.comments[lang].push(normalized);
-          incrementCommentCount(lang, normalized.comment_language_detected);
+          const det = normalized.comment_language_detected;
+          if (det === lang || det === 'unknown') {
+            APP.results.commentCache.add(reply.id);
+            APP.results.comments[lang].push(normalized);
+            incrementCommentCount(lang, det);
+          }
         }
       }
     }

@@ -368,10 +368,14 @@ async function generateZip(state, apiKey, onProgress = null) {
   const zip = new JSZip();
 
   const { videos, comments } = state.results;
-  const jaVideos   = videos.ja   || [];
-  const enVideos   = videos.en   || [];
-  const jaComments = comments.ja || [];
-  const enComments = comments.en || [];
+  const langs  = state.settings?.languages || ['ja'];
+  const hasJa  = langs.includes('ja');
+  const hasEn  = langs.includes('en');
+
+  const jaVideos   = hasJa ? (videos.ja   || []) : [];
+  const enVideos   = hasEn ? (videos.en   || []) : [];
+  const jaComments = hasJa ? (comments.ja || []) : [];
+  const enComments = hasEn ? (comments.en || []) : [];
 
   // Build channel map from video data (channel raw info stored during collection)
   const channelMap = state.results.channelMap || new Map();
@@ -386,38 +390,80 @@ async function generateZip(state, apiKey, onProgress = null) {
 
   // ── raw/ ─────────────────────────────────────────────────
   const rawFolder = zip.folder('raw');
+  const fileList  = [];
 
-  rawFolder.file('ja_videos.csv',
-    toCsvString(VIDEO_CSV_HEADERS, jaVideos.map(videoToRawRow)));
-  rawFolder.file('en_videos.csv',
-    toCsvString(VIDEO_CSV_HEADERS, enVideos.map(videoToRawRow)));
+  if (hasJa) {
+    rawFolder.file('ja_videos.csv',
+      toCsvString(VIDEO_CSV_HEADERS, jaVideos.map(videoToRawRow)));
+    rawFolder.file('ja_videos.json',
+      JSON.stringify(jaVideos, null, 2));
+    fileList.push(
+      { path: 'raw/ja_videos.csv',  rows: jaVideos.length },
+      { path: 'raw/ja_videos.json', rows: jaVideos.length },
+    );
+  }
+  if (hasEn) {
+    rawFolder.file('en_videos.csv',
+      toCsvString(VIDEO_CSV_HEADERS, enVideos.map(videoToRawRow)));
+    rawFolder.file('en_videos.json',
+      JSON.stringify(enVideos, null, 2));
+    fileList.push(
+      { path: 'raw/en_videos.csv',  rows: enVideos.length },
+      { path: 'raw/en_videos.json', rows: enVideos.length },
+    );
+  }
 
   if (onProgress) onProgress(20);
 
-  rawFolder.file('ja_comments.csv',
-    toCsvString(COMMENT_CSV_HEADERS, jaComments.map(commentToRawRow)));
+  if (hasJa) {
+    rawFolder.file('ja_comments.csv',
+      toCsvString(COMMENT_CSV_HEADERS, jaComments.map(commentToRawRow)));
+    rawFolder.file('ja_comments.json',
+      JSON.stringify(jaComments, null, 2));
+    fileList.push(
+      { path: 'raw/ja_comments.csv',  rows: jaComments.length },
+      { path: 'raw/ja_comments.json', rows: jaComments.length },
+    );
+  }
 
   if (onProgress) onProgress(40);
 
-  rawFolder.file('en_comments.csv',
-    toCsvString(COMMENT_CSV_HEADERS, enComments.map(commentToRawRow)));
+  if (hasEn) {
+    rawFolder.file('en_comments.csv',
+      toCsvString(COMMENT_CSV_HEADERS, enComments.map(commentToRawRow)));
+    rawFolder.file('en_comments.json',
+      JSON.stringify(enComments, null, 2));
+    fileList.push(
+      { path: 'raw/en_comments.csv',  rows: enComments.length },
+      { path: 'raw/en_comments.json', rows: enComments.length },
+    );
+  }
 
   if (onProgress) onProgress(55);
 
   // ── khcoder/ ─────────────────────────────────────────────
   const khFolder = zip.folder('khcoder');
 
-  khFolder.file('ja_comments_khcoder.tsv',
-    toTsvString(KH_COMMENT_HEADERS, jaComments.map(c => commentToKhRow(c, videoMap, channelMap))));
-  khFolder.file('en_comments_khcoder.tsv',
-    toTsvString(KH_COMMENT_HEADERS, enComments.map(c => commentToKhRow(c, videoMap, channelMap))));
-
-  if (onProgress) onProgress(70);
-
-  khFolder.file('ja_videos_khcoder.tsv',
-    toTsvString(KH_VIDEO_HEADERS, jaVideos.map(v => videoToKhRow(v, channelMap))));
-  khFolder.file('en_videos_khcoder.tsv',
-    toTsvString(KH_VIDEO_HEADERS, enVideos.map(v => videoToKhRow(v, channelMap))));
+  if (hasJa) {
+    khFolder.file('ja_comments_khcoder.tsv',
+      toTsvString(KH_COMMENT_HEADERS, jaComments.map(c => commentToKhRow(c, videoMap, channelMap))));
+    khFolder.file('ja_videos_khcoder.tsv',
+      toTsvString(KH_VIDEO_HEADERS, jaVideos.map(v => videoToKhRow(v, channelMap))));
+    fileList.push(
+      { path: 'khcoder/ja_comments_khcoder.tsv', rows: jaComments.length },
+      { path: 'khcoder/ja_videos_khcoder.tsv',   rows: jaVideos.length },
+    );
+  }
+  if (hasEn) {
+    khFolder.file('en_comments_khcoder.tsv',
+      toTsvString(KH_COMMENT_HEADERS, enComments.map(c => commentToKhRow(c, videoMap, channelMap))));
+    khFolder.file('en_videos_khcoder.tsv',
+      toTsvString(KH_VIDEO_HEADERS, enVideos.map(v => videoToKhRow(v, channelMap))));
+    fileList.push(
+      { path: 'khcoder/en_comments_khcoder.tsv', rows: enComments.length },
+      { path: 'khcoder/en_videos_khcoder.tsv',   rows: enVideos.length },
+    );
+  }
 
   if (onProgress) onProgress(80);
 
@@ -427,17 +473,6 @@ async function generateZip(state, apiKey, onProgress = null) {
 
   // ── root files ───────────────────────────────────────────
   zip.file('README.txt', buildReadmeTxt(state));
-
-  const fileList = [
-    { path: 'raw/ja_videos.csv',              rows: jaVideos.length },
-    { path: 'raw/en_videos.csv',              rows: enVideos.length },
-    { path: 'raw/ja_comments.csv',            rows: jaComments.length },
-    { path: 'raw/en_comments.csv',            rows: enComments.length },
-    { path: 'khcoder/ja_comments_khcoder.tsv', rows: jaComments.length },
-    { path: 'khcoder/en_comments_khcoder.tsv', rows: enComments.length },
-    { path: 'khcoder/ja_videos_khcoder.tsv',   rows: jaVideos.length },
-    { path: 'khcoder/en_videos_khcoder.tsv',   rows: enVideos.length },
-  ];
 
   const manifest = await buildManifest(state, fileList, apiKey);
   zip.file('manifest.json', JSON.stringify(manifest, null, 2));

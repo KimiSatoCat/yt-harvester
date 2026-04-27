@@ -132,6 +132,7 @@ const TRANSLATIONS = {
     download_zip: 'ZIPをダウンロード',
     download_preparing: 'ZIP生成中...',
     download_new_collection: '新しい収集を開始',
+    download_home: 'ホームに戻る',
     clear_saved_data: '保存データを削除',
     saved_data_cleared: '保存データを削除しました',
 
@@ -286,6 +287,7 @@ const TRANSLATIONS = {
     download_zip: 'Download ZIP',
     download_preparing: 'Generating ZIP...',
     download_new_collection: 'Start New Collection',
+    download_home: 'Back to Home',
     clear_saved_data: 'Delete Saved Data',
     saved_data_cleared: 'Saved data has been deleted',
 
