@@ -161,6 +161,9 @@ function initDateModeToggle() {
       if (isYear) syncYearToDates();
     });
   });
+
+  // Initialize with year mode active
+  syncYearToDates();
 }
 
 // ──────────────────────────────────────────────────────────

@@ -475,7 +475,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .date-mode-seg input[type=radio] { display: none; }
 .date-mode-seg label {
   padding: 4px 12px;
-  font-size: 20px;
+  font-size: 30px;
   cursor: pointer;
   color: var(--text-secondary);
   background: var(--bg-surface);
