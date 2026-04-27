@@ -100,7 +100,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .app-header {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 300; /* above modal overlay (200) so toggles are always accessible */
   display: flex;
   align-items: center;
   gap: 12px;
@@ -692,6 +692,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .modal-overlay {
   position: fixed;
   inset: 0;
+  top: 48px; /* start below the header so lang/theme toggles stay accessible */
   z-index: 200;
   background: rgba(0, 0, 0, 0.7);
   display: flex;
