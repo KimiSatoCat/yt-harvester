@@ -76,6 +76,10 @@ function toggleTheme() {
 
 let conditionCount = 0;
 
+function escapeAttr(str) {
+  return String(str).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function createSearchConditionRow(data = null, callbacks = {}) {
   conditionCount++;
   const idx = conditionCount;
@@ -99,7 +103,7 @@ function createSearchConditionRow(data = null, callbacks = {}) {
       <label class="field-label" data-i18n="must_label">${t('must_label')}</label>
       <input class="field-input must-input" type="text"
              data-i18n="must_placeholder" data-i18n-attr="placeholder"
-             placeholder="${t('must_placeholder')}"
+             placeholder="${escapeAttr(t('must_placeholder'))}"
              autocomplete="off" spellcheck="false" />
       <div class="suggestions-row">
         <span class="suggestions-label" data-i18n="related_terms">${t('related_terms')}</span>
@@ -110,13 +114,13 @@ function createSearchConditionRow(data = null, callbacks = {}) {
       <label class="field-label" data-i18n="any_label">${t('any_label')}</label>
       <input class="field-input any-input" type="text"
              data-i18n="any_placeholder" data-i18n-attr="placeholder"
-             placeholder="${t('any_placeholder')}"
+             placeholder="${escapeAttr(t('any_placeholder'))}"
              autocomplete="off" spellcheck="false" />
 
       <label class="field-label" data-i18n="not_label">${t('not_label')}</label>
       <input class="field-input not-input" type="text"
              data-i18n="not_placeholder" data-i18n-attr="placeholder"
-             placeholder="${t('not_placeholder')}"
+             placeholder="${escapeAttr(t('not_placeholder'))}"
              autocomplete="off" spellcheck="false" />
     </div>
     <div class="condition-footer">

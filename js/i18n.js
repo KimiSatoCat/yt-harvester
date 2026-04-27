@@ -318,6 +318,10 @@ function initI18n() {
   currentLang = saved || sys;
   document.documentElement.lang = currentLang;
   applyTranslations();
+  // Sync the lang-toggle button text with the current language
+  // (data-i18n is not used on this button so we set it manually)
+  const btn = document.getElementById('lang-toggle');
+  if (btn) btn.textContent = TRANSLATIONS[currentLang]?.lang_toggle ?? 'EN';
 }
 
 function setLanguage(lang) {
