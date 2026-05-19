@@ -532,6 +532,50 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   border-radius: var(--radius-sm);
 }
 
+/* ── Help button (?) and popover ────────────────────────────────── */
+.split-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 1px solid var(--text-dim);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.help-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.help-popover {
+  margin-top: 8px;
+  padding: 10px 14px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.65;
+  white-space: pre-line;
+  max-width: 480px;
+}
+
 /* ── Custom period rows ─────────────────────────────────────────── */
 .custom-period-row {
   display: flex;

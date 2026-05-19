@@ -517,6 +517,19 @@ function setupGlobalEventListeners() {
     });
   });
 
+  // Period split help button
+  document.getElementById('split-period-help-btn')
+    ?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const pop = document.getElementById('split-period-help-popover');
+      if (pop) pop.hidden = !pop.hidden;
+    });
+  // Close popover when clicking outside
+  document.addEventListener('click', () => {
+    const pop = document.getElementById('split-period-help-popover');
+    if (pop && !pop.hidden) pop.hidden = true;
+  });
+
   // Period split toggle
   document.getElementById('split-period-toggle')
     .addEventListener('change', (e) => {

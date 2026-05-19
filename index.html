@@ -141,10 +141,16 @@
             </div>
             <!-- Period split -->
             <div class="mt-8">
-              <label class="checkbox-label">
-                <input type="checkbox" id="split-period-toggle" />
-                <span data-i18n="split_period">期間を分割して取得する（1クエリ500件制限を回避）</span>
-              </label>
+              <div class="split-toggle-row">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="split-period-toggle" />
+                  <span data-i18n="split_period">期間を分割して取得する（1クエリ500件制限を回避）</span>
+                </label>
+                <button type="button" class="help-btn" id="split-period-help-btn" aria-label="ヘルプ">?</button>
+              </div>
+              <div id="split-period-help-popover" class="help-popover" hidden>
+                <p data-i18n="split_period_help"></p>
+              </div>
             </div>
             <!-- Warning: date range too large without splitting -->
             <div id="date-range-warning" class="warning-banner mt-4" hidden>
