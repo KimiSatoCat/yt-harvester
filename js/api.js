@@ -335,10 +335,13 @@ class YouTubeAPI {
 
 /**
  * Estimate quota cost for a collection run.
- * Returns { titles, comments, total } so the UI can show a breakdown
- * and warn when either phase alone might exceed the daily limit.
+ * Returns { titles, comments, total } so the UI can show a phase breakdown.
+ *
+ * mode='titles'   → search + videoDetails + channels (no comments)
+ * mode='comments' → search only (no videoDetails/channels) + comments
+ * mode='full'     → everything
  */
-function estimateQuota({ numConditions, numPeriods, numLanguages, estimatedVideosPerSearch = 50, commentsPerVideo = 100 }) {
+function estimateQuota({ numConditions, numPeriods, numLanguages, estimatedVideosPerSearch = 50, commentsPerVideo = 100, mode = 'full' }) {
   const searchCalls  = numConditions * numPeriods * numLanguages;
   const searchQuota  = searchCalls * 100 * Math.ceil(estimatedVideosPerSearch / 50);
   const totalVideos  = searchCalls * estimatedVideosPerSearch;
@@ -346,8 +349,17 @@ function estimateQuota({ numConditions, numPeriods, numLanguages, estimatedVideo
   const channelQuota = Math.ceil(totalVideos / 50);
   const commentPages = Math.ceil(commentsPerVideo / 100);
   const commentQuota = totalVideos * commentPages;
-  const titles = searchQuota + videoQuota + channelQuota;
-  return { titles, comments: commentQuota, total: titles + commentQuota };
+
+  if (mode === 'titles') {
+    const t = searchQuota + videoQuota + channelQuota;
+    return { titles: t, comments: 0, total: t };
+  }
+  if (mode === 'comments') {
+    // Only search + comments; video details and channel fetches are skipped
+    return { titles: searchQuota, comments: commentQuota, total: searchQuota + commentQuota };
+  }
+  const t = searchQuota + videoQuota + channelQuota;
+  return { titles: t, comments: commentQuota, total: t + commentQuota };
 }
 
 export { YouTubeAPI, estimateQuota, sleep };

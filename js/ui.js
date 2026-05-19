@@ -388,6 +388,14 @@ function updateQuotaEstimate(estimate, mode = 'full') {
   setTextContent('quota-titles-value',   titles.toLocaleString());
   setTextContent('quota-comments-value', comments.toLocaleString());
 
+  // Phase 1 label changes based on mode
+  const phase1Label = document.getElementById('quota-phase1-label');
+  if (phase1Label) {
+    const key = mode === 'comments' ? 'quota_search_label' : 'quota_titles_label';
+    phase1Label.setAttribute('data-i18n', key);
+    phase1Label.textContent = t(key);
+  }
+
   const commentsRow = document.getElementById('quota-comments-row');
   if (commentsRow) commentsRow.hidden = (mode === 'titles');
 

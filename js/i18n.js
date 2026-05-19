@@ -54,8 +54,10 @@ const TRANSLATIONS = {
     // Collection mode
     collection_mode: '収集モード',
     mode_titles_only: 'タイトルのみ',
+    mode_comments_only: 'コメントのみ',
     mode_full: 'タイトル＋コメント',
     mode_hint_titles: 'コメントを取得せず，動画タイトル・投稿日時のみ収集して時系列分布を確認します。まずこのモードで分布を把握し，次に期間を調整してコメントを取得することでクォータ超過を回避できます。',
+    mode_hint_comments: '動画メタデータを取得せず，動画検索からコメントのみを収集します。「タイトルのみ」で取得済みの動画に対してコメントを追加収集する際に使用します。動画詳細・チャンネル取得のクォータを節約できます。',
 
     date_range: '期間',
     date_mode_calendar: 'カレンダー',
@@ -86,6 +88,7 @@ const TRANSLATIONS = {
     limit_unlimited: '制限なし（全件）',
     limit_unlimited_warning: '⚠ 「制限なし」選択中：コメント数の多い動画ではAPIクォータを大量消費します',
     quota_titles_label: 'タイトル取得フェーズ',
+    quota_search_label: '動画検索フェーズ',
     quota_comments_label: 'コメント取得フェーズ（推定）',
     quota_total_label: '合計',
     quota_estimate: 'クォータ消費見積り:',
@@ -239,8 +242,10 @@ const TRANSLATIONS = {
 
     collection_mode: 'Collection Mode',
     mode_titles_only: 'Titles Only',
+    mode_comments_only: 'Comments Only',
     mode_full: 'Titles + Comments',
     mode_hint_titles: 'Collect video titles and metadata only (no comments). Use this first to understand temporal distribution, then adjust periods before fetching comments to stay within quota limits.',
+    mode_hint_comments: 'Skip video metadata — search for video IDs and fetch comments directly. Use this after a Titles Only run to add comments while saving the quota cost of re-fetching video details and channel info.',
 
     date_range: 'Date Range',
     date_mode_calendar: 'Calendar',
@@ -271,6 +276,7 @@ const TRANSLATIONS = {
     limit_unlimited: 'Unlimited (all comments)',
     limit_unlimited_warning: '⚠ Unlimited selected: heavy API quota usage for videos with many comments',
     quota_titles_label: 'Titles phase',
+    quota_search_label: 'Video search phase',
     quota_comments_label: 'Comments phase (est.)',
     quota_total_label: 'Total',
     quota_estimate: 'Estimated quota:',

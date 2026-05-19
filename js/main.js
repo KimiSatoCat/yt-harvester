@@ -253,6 +253,7 @@ function updateQuotaEstimateDisplay() {
     numLanguages: 1,
     estimatedVideosPerSearch: 50,
     commentsPerVideo,
+    mode,
   });
 
   updateQuotaEstimate(estimate, mode);
@@ -335,6 +336,31 @@ function getCustomPeriods() {
       publishedBefore: p.end   + 'T23:59:59Z',
       label: `${p.start} – ${p.end}`,
     }));
+}
+
+/** Sync UI visibility to the currently selected collection mode. */
+function applyModeUI() {
+  const mode = document.querySelector('input[name="collection-mode"]:checked')?.value || 'full';
+
+  // Comment limit row: hidden when not fetching comments
+  const commentLimitRow = document.getElementById('comment-limit-row');
+  if (commentLimitRow) commentLimitRow.hidden = (mode === 'titles');
+
+  // Mode hint
+  const hintEl = document.getElementById('mode-hint');
+  if (hintEl) {
+    if (mode === 'titles') {
+      hintEl.setAttribute('data-i18n', 'mode_hint_titles');
+      hintEl.textContent = t('mode_hint_titles');
+      hintEl.hidden = false;
+    } else if (mode === 'comments') {
+      hintEl.setAttribute('data-i18n', 'mode_hint_comments');
+      hintEl.textContent = t('mode_hint_comments');
+      hintEl.hidden = false;
+    } else {
+      hintEl.hidden = true;
+    }
+  }
 }
 
 // ──────────────────────────────────────────────────────────
@@ -455,12 +481,7 @@ function setupGlobalEventListeners() {
   // Collection mode toggle
   document.querySelectorAll('input[name="collection-mode"]').forEach(radio => {
     radio.addEventListener('change', () => {
-      const mode = document.querySelector('input[name="collection-mode"]:checked')?.value || 'full';
-      const isTitles = mode === 'titles';
-      const commentLimitRow = document.getElementById('comment-limit-row');
-      if (commentLimitRow) commentLimitRow.hidden = isTitles;
-      const modeHint = document.getElementById('mode-hint-titles');
-      if (modeHint) modeHint.hidden = !isTitles;
+      applyModeUI();
       updateQuotaEstimateDisplay();
     });
   });
@@ -766,6 +787,19 @@ async function collectForConditionPeriodLang(api, condition, period, lang, signa
   );
   addLog(`Found ${videoIds.length} video IDs`, 'info');
 
+  // comments-only: skip video details and channel fetch, go straight to comments
+  if (mode === 'comments') {
+    const COMMENT_PARALLEL = 5;
+    for (let i = 0; i < videoIds.length; i += COMMENT_PARALLEL) {
+      if (signal.aborted) return;
+      await waitIfPaused(signal);
+      const batch = videoIds.slice(i, i + COMMENT_PARALLEL);
+      await Promise.all(batch.map(videoId => fetchAndStoreComments(api, videoId, lang, signal)));
+      updateProgressUI(APP.progress);
+    }
+    return;
+  }
+
   // 2. Filter out already-cached video IDs
   const newVideoIds = videoIds.filter(id => !APP.results.videoCache.has(id));
 
@@ -1059,11 +1093,7 @@ function restoreUIFromSettings(settings) {
   if (settings.collectionMode) {
     const modeEl = document.querySelector(`input[name="collection-mode"][value="${settings.collectionMode}"]`);
     if (modeEl) modeEl.checked = true;
-    const isTitles = settings.collectionMode === 'titles';
-    const commentLimitRow = document.getElementById('comment-limit-row');
-    if (commentLimitRow) commentLimitRow.hidden = isTitles;
-    const modeHint = document.getElementById('mode-hint-titles');
-    if (modeHint) modeHint.hidden = !isTitles;
+    applyModeUI();
   }
 
   // Restore conditions
@@ -1177,11 +1207,7 @@ async function importConditions(e) {
     if (data.collectionMode) {
       const modeEl = document.querySelector(`input[name="collection-mode"][value="${data.collectionMode}"]`);
       if (modeEl) modeEl.checked = true;
-      const isTitles = data.collectionMode === 'titles';
-      const commentLimitRow = document.getElementById('comment-limit-row');
-      if (commentLimitRow) commentLimitRow.hidden = isTitles;
-      const modeHint = document.getElementById('mode-hint-titles');
-      if (modeHint) modeHint.hidden = !isTitles;
+      applyModeUI();
     }
     if (data.splitUnit === 'custom' && data.customPeriods?.length > 0) {
       document.getElementById('split-unit-select').value = 'custom';
