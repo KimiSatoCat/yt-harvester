@@ -71,6 +71,10 @@
 /* ── Reset ──────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* Author-defined display values (e.g. display:flex on .warning-banner) override the
+   browser's built-in [hidden]{display:none}. This rule restores the expected behavior. */
+[hidden] { display: none !important; }
+
 html { font-size: 20px; scroll-behavior: smooth; }
 
 body {
