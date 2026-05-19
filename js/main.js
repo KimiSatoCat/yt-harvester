@@ -240,23 +240,38 @@ function updateQuotaEstimateDisplay() {
   const dateStart   = document.getElementById('date-start')?.value;
   const dateEnd     = document.getElementById('date-end')?.value;
 
-  let periods = 1;
+  // Clamp to valid range
+  const vpqEl = document.getElementById('videos-per-query');
+  const videosPerQuery = Math.min(500, Math.max(1, parseInt(vpqEl?.value || '50', 10) || 50));
+  if (vpqEl && parseInt(vpqEl.value, 10) !== videosPerQuery) vpqEl.value = videosPerQuery;
+
+  const numConditions = Math.max(conditions.length, 1);
+  let numPeriods = 1;
   if (splitUnit === 'custom') {
-    periods = Math.max(getCustomPeriods().length, 1);
+    numPeriods = Math.max(getCustomPeriods().length, 1);
   } else if (splitPeriod && dateStart && dateEnd) {
-    periods = generatePeriods(dateStart, dateEnd, splitUnit).length;
+    numPeriods = generatePeriods(dateStart, dateEnd, splitUnit).length;
   }
 
   const commentsPerVideo = limitVal === 'unlimited' ? 500 : parseInt(limitVal) || 100;
 
   const estimate = estimateQuota({
-    numConditions: Math.max(conditions.length, 1),
-    numPeriods: periods,
+    numConditions,
+    numPeriods,
     numLanguages: 1,
-    estimatedVideosPerSearch: 50,
+    estimatedVideosPerSearch: videosPerQuery,
     commentsPerVideo,
     mode,
   });
+
+  // Show search call breakdown: "N条件 × M期間 = K回"
+  const hintEl = document.getElementById('quota-search-calls-hint');
+  if (hintEl) {
+    const lang = getCurrentLang();
+    hintEl.textContent = lang === 'ja'
+      ? `(${numConditions}条件 × ${numPeriods}期間 = ${estimate.searchCalls}回)`
+      : `(${numConditions} cond × ${numPeriods} periods = ${estimate.searchCalls} calls)`;
+  }
 
   updateQuotaEstimate(estimate, mode);
   updateDateRangeWarning(dateStart, dateEnd, splitPeriod, splitUnit);
@@ -532,10 +547,17 @@ function setupGlobalEventListeners() {
       updateQuotaEstimateDisplay();
     });
 
-  // Live quota estimate updates
-  ['date-start', 'date-end', 'language-select'].forEach(id => {
-    document.getElementById(id)?.addEventListener('change', updateQuotaEstimateDisplay);
+  // Live quota estimate updates — change + input so calendar typing works too
+  ['date-start', 'date-end'].forEach(id => {
+    const el = document.getElementById(id);
+    el?.addEventListener('change', updateQuotaEstimateDisplay);
+    el?.addEventListener('input',  updateQuotaEstimateDisplay);
   });
+  document.getElementById('language-select')?.addEventListener('change', updateQuotaEstimateDisplay);
+
+  // Videos-per-query slider
+  document.getElementById('videos-per-query')
+    ?.addEventListener('input', updateQuotaEstimateDisplay);
 
   // Leave protection
   window.addEventListener('beforeunload', (e) => {

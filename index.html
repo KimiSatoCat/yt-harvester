@@ -204,12 +204,22 @@
         <!-- Quota estimate breakdown -->
         <div class="quota-estimate mt-12">
           <div class="quota-breakdown">
+            <!-- Row 1: Search API (always shown; exact for given videos/query assumption) -->
             <div class="quota-breakdown-row">
-              <span class="quota-breakdown-label" id="quota-phase1-label" data-i18n="quota_titles_label">タイトル取得フェーズ</span>
-              <span class="quota-breakdown-val" id="quota-titles-value">—</span>
+              <span class="quota-breakdown-label">
+                <span data-i18n="quota_search_api_label">検索API</span>
+                <span id="quota-search-calls-hint" class="quota-breakdown-sub"></span>
+              </span>
+              <span class="quota-breakdown-val" id="quota-search-value">—</span>
             </div>
+            <!-- Row 2: Video details + channels (hidden in comments-only mode) -->
+            <div class="quota-breakdown-row" id="quota-video-row">
+              <span class="quota-breakdown-label" data-i18n="quota_video_channel_label">動画詳細・チャンネル（推定）</span>
+              <span class="quota-breakdown-val" id="quota-video-value">—</span>
+            </div>
+            <!-- Row 3: Comments (hidden in titles-only mode) -->
             <div class="quota-breakdown-row" id="quota-comments-row">
-              <span class="quota-breakdown-label" data-i18n="quota_comments_label">コメント取得フェーズ（推定）</span>
+              <span class="quota-breakdown-label" data-i18n="quota_comments_label">コメント取得（推定）</span>
               <span class="quota-breakdown-val" id="quota-comments-value">—</span>
             </div>
             <div class="quota-breakdown-row quota-breakdown-total">
@@ -226,6 +236,14 @@
           <div id="quota-over-warning" class="warning-banner mt-4" hidden>
             <span>⚠</span>
             <span data-i18n="quota_warning_over">推定クォータが1日の上限（10,000）を超えます。期間をさらに細かく分割してください。</span>
+          </div>
+          <!-- Videos-per-query assumption control -->
+          <div class="quota-vpq-row mt-8">
+            <label class="quota-vpq-label" for="videos-per-query">
+              <span data-i18n="quota_vpq_label">想定動画数/クエリ</span>
+              <input type="number" id="videos-per-query" class="field-input quota-vpq-input" min="1" max="500" value="50" />
+              <span class="text-dim text-xs" data-i18n="quota_vpq_hint">件（最大500件/クエリ）</span>
+            </label>
           </div>
         </div>
 

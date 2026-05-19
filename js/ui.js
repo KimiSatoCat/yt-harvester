@@ -376,41 +376,39 @@ function parseDictText(text) {
 // ──────────────────────────────────────────────────────────
 
 /**
- * @param {{ titles: number, comments: number, total: number } | number} estimate
- * @param {'full'|'titles'} mode
+ * @param {{ searchQuota, videoChannelQuota, commentQuota, total, searchCalls } | number} estimate
+ * @param {'full'|'titles'|'comments'} mode
  */
 function updateQuotaEstimate(estimate, mode = 'full') {
-  const isObj    = typeof estimate === 'object' && estimate !== null;
-  const titles   = isObj ? (estimate.titles   || 0) : estimate;
-  const comments = isObj ? (estimate.comments || 0) : 0;
-  const total    = isObj ? (estimate.total    || 0) : estimate;
+  const isObj = typeof estimate === 'object' && estimate !== null;
+  const searchQ  = isObj ? (estimate.searchQuota       || 0) : estimate;
+  const videoQ   = isObj ? (estimate.videoChannelQuota || 0) : 0;
+  const commentQ = isObj ? (estimate.commentQuota      || 0) : 0;
+  const total    = isObj ? (estimate.total             || 0) : estimate;
 
-  setTextContent('quota-titles-value',   titles.toLocaleString());
-  setTextContent('quota-comments-value', comments.toLocaleString());
+  setTextContent('quota-search-value',   searchQ.toLocaleString());
+  setTextContent('quota-video-value',    videoQ.toLocaleString());
+  setTextContent('quota-comments-value', commentQ.toLocaleString());
 
-  // Phase 1 label changes based on mode
-  const phase1Label = document.getElementById('quota-phase1-label');
-  if (phase1Label) {
-    const key = mode === 'comments' ? 'quota_search_label' : 'quota_titles_label';
-    phase1Label.setAttribute('data-i18n', key);
-    phase1Label.textContent = t(key);
-  }
+  // Video row hidden in comments-only mode (video details are skipped)
+  const videoRow = document.getElementById('quota-video-row');
+  if (videoRow) videoRow.hidden = (mode === 'comments');
 
+  // Comments row hidden in titles-only mode
   const commentsRow = document.getElementById('quota-comments-row');
   if (commentsRow) commentsRow.hidden = (mode === 'titles');
 
-  const displayTotal = mode === 'titles' ? titles : total;
-  setTextContent('quota-estimate-value', displayTotal.toLocaleString());
+  setTextContent('quota-estimate-value', total.toLocaleString());
 
   const bar = document.getElementById('quota-estimate-bar');
   if (bar) {
-    const pct = Math.min((displayTotal / 10000) * 100, 100);
+    const pct = Math.min((total / 10000) * 100, 100);
     bar.style.width = `${pct}%`;
     bar.className = 'quota-bar-fill' + (pct > 80 ? ' quota-bar-danger' : pct > 50 ? ' quota-bar-warn' : '');
   }
 
   const warningEl = document.getElementById('quota-over-warning');
-  if (warningEl) warningEl.hidden = displayTotal <= 10000;
+  if (warningEl) warningEl.hidden = total <= 10000;
 }
 
 // ──────────────────────────────────────────────────────────

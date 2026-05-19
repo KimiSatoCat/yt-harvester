@@ -342,24 +342,22 @@ class YouTubeAPI {
  * mode='full'     → everything
  */
 function estimateQuota({ numConditions, numPeriods, numLanguages, estimatedVideosPerSearch = 50, commentsPerVideo = 100, mode = 'full' }) {
-  const searchCalls  = numConditions * numPeriods * numLanguages;
-  const searchQuota  = searchCalls * 100 * Math.ceil(estimatedVideosPerSearch / 50);
-  const totalVideos  = searchCalls * estimatedVideosPerSearch;
-  const videoQuota   = Math.ceil(totalVideos / 50);
-  const channelQuota = Math.ceil(totalVideos / 50);
-  const commentPages = Math.ceil(commentsPerVideo / 100);
-  const commentQuota = totalVideos * commentPages;
+  const searchCalls       = numConditions * numPeriods * numLanguages;
+  const searchQuota       = searchCalls * 100 * Math.ceil(estimatedVideosPerSearch / 50);
+  const totalVideos       = searchCalls * estimatedVideosPerSearch;
+  const videoChannelQuota = 2 * Math.ceil(totalVideos / 50); // video details + channels batched per 50
+  const commentPages      = Math.ceil(commentsPerVideo / 100);
+  const commentQuota      = totalVideos * commentPages;
 
   if (mode === 'titles') {
-    const t = searchQuota + videoQuota + channelQuota;
-    return { titles: t, comments: 0, total: t };
+    const t = searchQuota + videoChannelQuota;
+    return { searchQuota, videoChannelQuota, commentQuota: 0, titles: t, comments: 0, total: t, searchCalls, totalVideos };
   }
   if (mode === 'comments') {
-    // Only search + comments; video details and channel fetches are skipped
-    return { titles: searchQuota, comments: commentQuota, total: searchQuota + commentQuota };
+    return { searchQuota, videoChannelQuota: 0, commentQuota, titles: searchQuota, comments: commentQuota, total: searchQuota + commentQuota, searchCalls, totalVideos };
   }
-  const t = searchQuota + videoQuota + channelQuota;
-  return { titles: t, comments: commentQuota, total: t + commentQuota };
+  const t = searchQuota + videoChannelQuota;
+  return { searchQuota, videoChannelQuota, commentQuota, titles: t, comments: commentQuota, total: t + commentQuota, searchCalls, totalVideos };
 }
 
 export { YouTubeAPI, estimateQuota, sleep };
