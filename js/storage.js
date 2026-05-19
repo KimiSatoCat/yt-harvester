@@ -37,12 +37,12 @@ function serializeState(state) {
       videoCache:   Array.from(state.results.videoCache.entries()),
       commentCache: Array.from(state.results.commentCache),
       channelCache: Array.from((state.results.channelCache || new Map()).entries()),
-      // channelMap stores raw API items – serialize similarly
       channelMap:   Array.from((state.results.channelMap || new Map()).entries()),
     },
     progress: {
       ...state.progress,
-      logs: (state.progress.logs || []).slice(-500), // cap log size
+      completedTaskKeys: Array.from(state.progress.completedTaskKeys || new Set()),
+      logs: (state.progress.logs || []).slice(-500),
     },
     savedAt: Date.now(),
   };
@@ -61,7 +61,10 @@ function deserializeState(raw) {
       channelCache: new Map(raw.results?.channelCache || []),
       channelMap:   new Map(raw.results?.channelMap   || []),
     },
-    progress: raw.progress || {},
+    progress: {
+      ...(raw.progress || {}),
+      completedTaskKeys: new Set(raw.progress?.completedTaskKeys || []),
+    },
     savedAt: raw.savedAt,
   };
 }

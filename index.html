@@ -53,6 +53,7 @@
   <div id="resume-section" class="resume-banner" hidden>
     <div>
       <div class="resume-banner-label" data-i18n="resume_available">前回の途中データがあります</div>
+      <div id="resume-banner-detail" class="resume-banner-detail"></div>
     </div>
     <div class="resume-banner-actions">
       <button class="btn btn-primary btn-sm" id="resume-btn" data-i18n="resume_btn">途中から再開</button>
@@ -144,6 +145,11 @@
                 <input type="checkbox" id="split-period-toggle" />
                 <span data-i18n="split_period">期間を分割して取得する（1クエリ500件制限を回避）</span>
               </label>
+            </div>
+            <!-- Warning: date range too large without splitting -->
+            <div id="date-range-warning" class="warning-banner mt-4" hidden>
+              <span>⚠</span>
+              <span data-i18n="date_range_warning_nosplit">YouTube APIは1クエリあたり最大500件（最新順）のみ返します。長期間を分割なしで取得すると最新の動画しか収集されません。「期間を分割して取得する」を有効化し，分割単位を「年」以上に設定することを強く推奨します。</span>
             </div>
             <div id="split-options" class="split-options mt-4" hidden>
               <label class="field-label" data-i18n="split_unit">分割単位</label>
@@ -450,7 +456,9 @@
       <h2 class="modal-title" id="quota-modal-title" data-i18n="quota_modal_title">APIクォータ超過</h2>
     </div>
     <div class="modal-body">
-      <p class="modal-desc" data-i18n="quota_modal_desc">本日のYouTube Data APIクォータ（10,000ユニット/日）を超過しました。クォータはUTC 0:00にリセットされます。</p>
+      <p class="modal-desc" data-i18n="quota_modal_desc">本日のYouTube Data APIクォータ（10,000ユニット/日）を超過しました。</p>
+      <p id="quota-reset-time" class="modal-desc text-sm text-dim"></p>
+      <p id="quota-autosaved-msg" class="modal-desc text-sm" style="color:var(--color-success, #4caf50)" hidden data-i18n="quota_autosaved_msg">途中データを自動保存しました。明日，ページを開いて「途中から再開」ボタンを押してください。</p>
       <div class="option-list">
         <button class="option-btn option-primary" id="quota-download-btn">
           <span class="option-icon">⬇</span>
@@ -458,11 +466,7 @@
         </button>
         <button class="option-btn" id="quota-save-btn">
           <span class="option-icon">💾</span>
-          <span data-i18n="quota_option_save">翌日のクォータリセット後に再開するため保存</span>
-        </button>
-        <button class="option-btn" id="quota-newkey-btn">
-          <span class="option-icon">🔑</span>
-          <span data-i18n="quota_option_newkey">別のAPIキーで続行</span>
+          <span data-i18n="quota_option_save">途中データを保存してクォータリセット後に再開</span>
         </button>
       </div>
     </div>

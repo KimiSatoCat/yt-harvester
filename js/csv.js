@@ -292,36 +292,49 @@ async function buildManifest(state, fileList, apiKey) {
 
 function buildReadmeTxt(state) {
   const s = state.settings;
+  const mode = s.collectionMode || 'full';
   const jaV = (state.results.videos.ja   || []).length;
   const enV = (state.results.videos.en   || []).length;
   const jaC = (state.results.comments.ja || []).length;
   const enC = (state.results.comments.en || []).length;
+
+  const modeLabel = mode === 'titles' ? 'タイトルのみ / Titles only'
+    : mode === 'comments' ? 'コメントのみ / Comments only'
+    : 'タイトル＋コメント / Full';
+
+  const videoFiles = mode !== 'comments' ? `raw/ja_videos.csv       - 日本語動画メタデータ
+raw/en_videos.csv       - 英語動画メタデータ
+khcoder/ja_videos_khcoder.tsv   - KH Coder用日本語動画TSV
+khcoder/en_videos_khcoder.tsv   - KH Coder用英語動画TSV` : '';
+
+  const commentFiles = mode !== 'titles' ? `raw/ja_comments.csv     - 日本語コメント（生データ）
+raw/en_comments.csv     - 英語コメント（生データ）
+khcoder/ja_comments_khcoder.tsv - KH Coder用日本語コメントTSV
+khcoder/en_comments_khcoder.tsv - KH Coder用英語コメントTSV` : '';
+
+  const summaryLines = [
+    mode !== 'comments' ? `日本語動画 / Japanese videos:    ${jaV}` : '',
+    mode !== 'comments' ? `英語動画   / English videos:     ${enV}` : '',
+    mode !== 'titles'   ? `日本語コメント / Japanese comments: ${jaC}` : '',
+    mode !== 'titles'   ? `英語コメント   / English comments:  ${enC}` : '',
+  ].filter(Boolean).join('\n');
 
   return `=== YouTube Comment Harvester for KH Coder ===
 Version: 0.1.0
 https://github.com/
 
 --- 収集条件 / Collection Conditions ---
+収集モード / Mode: ${modeLabel}
 期間 / Period:    ${s.dateStart} ～ ${s.dateEnd}
 言語 / Language:  ${(s.languages || []).join(', ')}
 期間分割 / Split: ${s.splitPeriod ? s.splitUnit : 'none'}
 コメント上限 / Comment limit: ${s.commentsPerVideo ?? 'unlimited'}
 
 --- 結果サマリー / Summary ---
-日本語動画 / Japanese videos:    ${jaV}
-英語動画   / English videos:     ${enV}
-日本語コメント / Japanese comments: ${jaC}
-英語コメント   / English comments:  ${enC}
+${summaryLines}
 
 --- ファイル構成 / File Structure ---
-raw/ja_videos.csv       - 日本語動画メタデータ
-raw/ja_comments.csv     - 日本語コメント（生データ）
-raw/en_videos.csv       - 英語動画メタデータ
-raw/en_comments.csv     - 英語コメント（生データ）
-khcoder/ja_comments_khcoder.tsv - KH Coder用日本語コメントTSV
-khcoder/en_comments_khcoder.tsv - KH Coder用英語コメントTSV
-khcoder/ja_videos_khcoder.tsv   - KH Coder用日本語動画TSV
-khcoder/en_videos_khcoder.tsv   - KH Coder用英語動画TSV
+${[videoFiles, commentFiles].filter(Boolean).join('\n')}
 logs/collection_log.txt         - 収集ログ
 
 --- KH Coderへの投入手順 / How to use with KH Coder ---
@@ -377,6 +390,11 @@ async function generateZip(state, apiKey, onProgress = null) {
   const hasJa  = langs.includes('ja');
   const hasEn  = langs.includes('en');
 
+  const mode = state.settings?.collectionMode || 'full';
+  // titles mode: no comment files; comments mode: no video detail files
+  const includeVideos   = mode !== 'comments';
+  const includeComments = mode !== 'titles';
+
   const jaVideos   = hasJa ? (videos.ja   || []) : [];
   const enVideos   = hasEn ? (videos.en   || []) : [];
   const jaComments = hasJa ? (comments.ja || []) : [];
@@ -397,7 +415,7 @@ async function generateZip(state, apiKey, onProgress = null) {
   const rawFolder = zip.folder('raw');
   const fileList  = [];
 
-  if (hasJa) {
+  if (hasJa && includeVideos) {
     rawFolder.file('ja_videos.csv',
       toCsvString(VIDEO_CSV_HEADERS, jaVideos.map(videoToRawRow)));
     rawFolder.file('ja_videos.json',
@@ -407,7 +425,7 @@ async function generateZip(state, apiKey, onProgress = null) {
       { path: 'raw/ja_videos.json', rows: jaVideos.length },
     );
   }
-  if (hasEn) {
+  if (hasEn && includeVideos) {
     rawFolder.file('en_videos.csv',
       toCsvString(VIDEO_CSV_HEADERS, enVideos.map(videoToRawRow)));
     rawFolder.file('en_videos.json',
@@ -420,7 +438,7 @@ async function generateZip(state, apiKey, onProgress = null) {
 
   if (onProgress) onProgress(20);
 
-  if (hasJa) {
+  if (hasJa && includeComments) {
     rawFolder.file('ja_comments.csv',
       toCsvString(COMMENT_CSV_HEADERS, jaComments.map(commentToRawRow)));
     rawFolder.file('ja_comments.json',
@@ -433,7 +451,7 @@ async function generateZip(state, apiKey, onProgress = null) {
 
   if (onProgress) onProgress(40);
 
-  if (hasEn) {
+  if (hasEn && includeComments) {
     rawFolder.file('en_comments.csv',
       toCsvString(COMMENT_CSV_HEADERS, enComments.map(commentToRawRow)));
     rawFolder.file('en_comments.json',
@@ -450,24 +468,28 @@ async function generateZip(state, apiKey, onProgress = null) {
   const khFolder = zip.folder('khcoder');
 
   if (hasJa) {
-    khFolder.file('ja_comments_khcoder.tsv',
-      toTsvString(KH_COMMENT_HEADERS, jaComments.map(c => commentToKhRow(c, videoMap, channelMap))));
-    khFolder.file('ja_videos_khcoder.tsv',
-      toTsvString(KH_VIDEO_HEADERS, jaVideos.map(v => videoToKhRow(v, channelMap))));
-    fileList.push(
-      { path: 'khcoder/ja_comments_khcoder.tsv', rows: jaComments.length },
-      { path: 'khcoder/ja_videos_khcoder.tsv',   rows: jaVideos.length },
-    );
+    if (includeComments) {
+      khFolder.file('ja_comments_khcoder.tsv',
+        toTsvString(KH_COMMENT_HEADERS, jaComments.map(c => commentToKhRow(c, videoMap, channelMap))));
+      fileList.push({ path: 'khcoder/ja_comments_khcoder.tsv', rows: jaComments.length });
+    }
+    if (includeVideos) {
+      khFolder.file('ja_videos_khcoder.tsv',
+        toTsvString(KH_VIDEO_HEADERS, jaVideos.map(v => videoToKhRow(v, channelMap))));
+      fileList.push({ path: 'khcoder/ja_videos_khcoder.tsv', rows: jaVideos.length });
+    }
   }
   if (hasEn) {
-    khFolder.file('en_comments_khcoder.tsv',
-      toTsvString(KH_COMMENT_HEADERS, enComments.map(c => commentToKhRow(c, videoMap, channelMap))));
-    khFolder.file('en_videos_khcoder.tsv',
-      toTsvString(KH_VIDEO_HEADERS, enVideos.map(v => videoToKhRow(v, channelMap))));
-    fileList.push(
-      { path: 'khcoder/en_comments_khcoder.tsv', rows: enComments.length },
-      { path: 'khcoder/en_videos_khcoder.tsv',   rows: enVideos.length },
-    );
+    if (includeComments) {
+      khFolder.file('en_comments_khcoder.tsv',
+        toTsvString(KH_COMMENT_HEADERS, enComments.map(c => commentToKhRow(c, videoMap, channelMap))));
+      fileList.push({ path: 'khcoder/en_comments_khcoder.tsv', rows: enComments.length });
+    }
+    if (includeVideos) {
+      khFolder.file('en_videos_khcoder.tsv',
+        toTsvString(KH_VIDEO_HEADERS, enVideos.map(v => videoToKhRow(v, channelMap))));
+      fileList.push({ path: 'khcoder/en_videos_khcoder.tsv', rows: enVideos.length });
+    }
   }
 
   if (onProgress) onProgress(80);
@@ -477,22 +499,16 @@ async function generateZip(state, apiKey, onProgress = null) {
   const khcoderCounts = { commentsAfterFilter: 0, videosAfterFilter: 0 };
   try {
     if (hasJa) {
-      const [cResult, vResult] = await Promise.all([
-        buildCommentsXlsx(jaComments, jaVideos, 'ja'),
-        buildVideosXlsx(jaVideos, 'ja'),
-      ]);
-      khFolder.file('khcoder_comments.xlsx', cResult.buffer);
-      khFolder.file('khcoder_videos.xlsx',   vResult.buffer);
-      khcoderCounts.commentsAfterFilter += cResult.count;
-      khcoderCounts.videosAfterFilter   += vResult.count;
+      const tasks = [];
+      if (includeComments) tasks.push(buildCommentsXlsx(jaComments, jaVideos, 'ja').then(r => { khFolder.file('khcoder_comments.xlsx', r.buffer); khcoderCounts.commentsAfterFilter += r.count; }));
+      if (includeVideos)   tasks.push(buildVideosXlsx(jaVideos, 'ja').then(r => { khFolder.file('khcoder_videos.xlsx', r.buffer); khcoderCounts.videosAfterFilter += r.count; }));
+      await Promise.all(tasks);
     }
     if (hasEn) {
-      const [cEnResult, vEnResult] = await Promise.all([
-        buildCommentsXlsx(enComments, enVideos, 'en'),
-        buildVideosXlsx(enVideos, 'en'),
-      ]);
-      khFolder.file('khcoder_comments_en.xlsx', cEnResult.buffer);
-      khFolder.file('khcoder_videos_en.xlsx',   vEnResult.buffer);
+      const tasks = [];
+      if (includeComments) tasks.push(buildCommentsXlsx(enComments, enVideos, 'en').then(r => { khFolder.file('khcoder_comments_en.xlsx', r.buffer); }));
+      if (includeVideos)   tasks.push(buildVideosXlsx(enVideos, 'en').then(r => { khFolder.file('khcoder_videos_en.xlsx', r.buffer); }));
+      await Promise.all(tasks);
     }
     khFolder.file('README.md', buildKhcoderReadme(state));
   } catch (xlsxErr) {

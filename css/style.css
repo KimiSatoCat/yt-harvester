@@ -959,6 +959,12 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   color: var(--text-secondary);
 }
 
+.resume-banner-detail {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
 .resume-banner-actions { display: flex; gap: 6px; }
 
 /* Dict editor textarea */

@@ -26,6 +26,8 @@ const TRANSLATIONS = {
     api_key_howto: 'APIキーの取得方法',
     api_key_referrer_note: '※ セキュリティのため、HTTPリファラ制限付きキーの使用を推奨します（READMEを参照）',
     resume_available: '前回の途中データがあります',
+    resume_saved_at: '保存: {time}',
+    resume_tasks_done: '完了タスク: {done} / {total}',
     resume_btn: '途中から再開',
     resume_or_new: 'または新しく収集を開始',
     discard_saved: '保存データを破棄',
@@ -94,6 +96,7 @@ const TRANSLATIONS = {
     quota_estimate: 'クォータ消費見積り:',
     quota_daily_limit: '/ 10,000（1日上限）',
     quota_warning_over: '推定クォータが1日の上限（10,000）を超えます。期間をさらに細かく分割するか，収集期間を短くしてください。',
+    date_range_warning_nosplit: 'YouTube APIは1クエリあたり最大500件（最新順）のみ返します。長期間を分割なしで取得すると最新の動画しか収集されません。「期間を分割して取得する」を有効化し，分割単位を「年」以上に設定することを強く推奨します。',
 
     // Start button
     start_collection: '収集を開始',
@@ -129,10 +132,11 @@ const TRANSLATIONS = {
 
     // Quota exceeded modal
     quota_modal_title: 'APIクォータ超過',
-    quota_modal_desc: '本日のYouTube Data APIクォータ（10,000ユニット/日）を超過しました。クォータはUTC 0:00にリセットされます。',
+    quota_modal_desc: '本日のYouTube Data APIクォータ（10,000ユニット/日）を超過しました。',
+    quota_reset_at: 'クォータリセット予定: {time}（太平洋標準時 深夜0時）',
+    quota_autosaved_msg: '途中データを自動保存しました。クォータリセット後にページを開き「途中から再開」を押してください。',
     quota_option_download: '今すぐZIPで出力して終了',
-    quota_option_save: '翌日のクォータリセット後に再開するため保存',
-    quota_option_newkey: '別のAPIキーで続行',
+    quota_option_save: '途中データを保存してクォータリセット後に再開',
 
     // Consent modal
     consent_modal_title: 'ローカルデータ保存の確認',
@@ -217,6 +221,8 @@ const TRANSLATIONS = {
     api_key_howto: 'How to get an API key',
     api_key_referrer_note: '* For security, we recommend using an API key with HTTP referrer restrictions (see README)',
     resume_available: 'Previous collection data found',
+    resume_saved_at: 'Saved: {time}',
+    resume_tasks_done: 'Tasks done: {done} / {total}',
     resume_btn: 'Resume Previous Session',
     resume_or_new: 'Or start a new collection',
     discard_saved: 'Discard saved data',
@@ -282,6 +288,7 @@ const TRANSLATIONS = {
     quota_estimate: 'Estimated quota:',
     quota_daily_limit: '/ 10,000 (daily limit)',
     quota_warning_over: 'Estimated quota may exceed the daily limit (10,000). Consider splitting into shorter periods or reducing the date range.',
+    date_range_warning_nosplit: 'YouTube API returns at most 500 results per query (newest first). Without period splitting, long date ranges will only collect the most recent videos. Enabling period splitting with at least yearly intervals is strongly recommended.',
 
     start_collection: 'Start Collection',
     no_conditions_error: 'Please add at least one valid search condition',
@@ -313,10 +320,11 @@ const TRANSLATIONS = {
     abort_cancel: 'Cancel (continue collecting)',
 
     quota_modal_title: 'API Quota Exceeded',
-    quota_modal_desc: "Today's YouTube Data API quota (10,000 units/day) has been exceeded. Quota resets at UTC 00:00.",
+    quota_modal_desc: "Today's YouTube Data API quota (10,000 units/day) has been exceeded.",
+    quota_reset_at: 'Quota resets at: {time} (Pacific midnight)',
+    quota_autosaved_msg: 'Progress auto-saved. After quota resets, reload the page and click "Resume Previous Session".',
     quota_option_download: 'Export as ZIP and finish',
-    quota_option_save: 'Save to resume after quota reset tomorrow',
-    quota_option_newkey: 'Continue with a different API key',
+    quota_option_save: 'Save progress to resume after quota reset',
 
     consent_modal_title: 'Local Data Storage Consent',
     consent_modal_body: 'Collected YouTube comment data (display names, comment text, channel IDs, etc.) will be temporarily stored in your browser\'s local storage (IndexedDB). This data is not transmitted externally and cannot be accessed outside this tool. It will be deleted upon completion or when you clear browser cache.',

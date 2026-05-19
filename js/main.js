@@ -51,17 +51,18 @@ const APP = {
   },
 
   progress: {
-    total:           0,
-    done:            0,
-    quotaUsed:       0,
-    startTime:       null,
-    currentTask:     '',
-    videosJa:        0,
-    videosEn:        0,
-    commentsJa:      0,
-    commentsEn:      0,
-    commentsUnknown: 0,
-    logs:            [],
+    total:             0,
+    done:              0,
+    quotaUsed:         0,
+    startTime:         null,
+    currentTask:       '',
+    videosJa:          0,
+    videosEn:          0,
+    commentsJa:        0,
+    commentsEn:        0,
+    commentsUnknown:   0,
+    logs:              [],
+    completedTaskKeys: new Set(),
   },
 };
 
@@ -83,10 +84,11 @@ async function init() {
   initDateModeToggle();
   addSearchConditionRow(); // Start with one row
 
-  // Check for saved state
-  const hasSaved = await hasSavedState();
-  if (hasSaved) {
+  // Check for saved state and populate resume banner
+  const saved = await loadState();
+  if (saved) {
     document.getElementById('resume-section').removeAttribute('hidden');
+    populateResumeBanner(saved);
   }
 
   showModal('api-key-modal');
@@ -257,6 +259,22 @@ function updateQuotaEstimateDisplay() {
   });
 
   updateQuotaEstimate(estimate, mode);
+  updateDateRangeWarning(dateStart, dateEnd, splitPeriod, splitUnit);
+}
+
+function updateDateRangeWarning(dateStart, dateEnd, splitPeriod, splitUnit) {
+  const el = document.getElementById('date-range-warning');
+  if (!el) return;
+
+  if (!dateStart || !dateEnd) { el.hidden = true; return; }
+
+  const days = (new Date(dateEnd) - new Date(dateStart)) / (1000 * 60 * 60 * 24);
+
+  // Warn when range > 365 days AND no effective per-period splitting
+  // Custom periods are assumed fine (user defined them explicitly)
+  const isCustom = splitUnit === 'custom';
+  const noSplit  = !splitPeriod || isCustom;
+  el.hidden = !(days > 365 && noSplit);
 }
 
 // ──────────────────────────────────────────────────────────
@@ -429,8 +447,6 @@ function setupGlobalEventListeners() {
     .addEventListener('click', () => { hideModal('quota-modal'); abortAndDownload(); });
   document.getElementById('quota-save-btn')
     .addEventListener('click', () => { hideModal('quota-modal'); handleQuotaSave(); });
-  document.getElementById('quota-newkey-btn')
-    .addEventListener('click', () => { hideModal('quota-modal'); showModal('api-key-modal'); });
 
   // Consent modal
   document.getElementById('consent-agree-btn')
@@ -744,6 +760,15 @@ async function runCollection() {
         if (signal.aborted) return;
         await waitIfPaused(signal);
 
+        const taskKey = `${lang}::${condition.query}::${period.label}`;
+
+        // Skip tasks already completed in a previous run
+        if (APP.progress.completedTaskKeys.has(taskKey)) {
+          APP.progress.done++;
+          updateProgressUI(APP.progress);
+          continue;
+        }
+
         APP.progress.currentTask = `${condition.query || condition.must} (${lang}) | ${period.label}`;
         updateProgressUI(APP.progress);
 
@@ -754,14 +779,22 @@ async function runCollection() {
         } catch (err) {
           if (err.name === 'AbortError') throw err;
           if (err.code === 'quotaExceeded') {
-            addLog('Quota exceeded', 'error');
+            addLog('Quota exceeded — auto-saving state', 'error');
             APP.abortController.abort();
-            showModal('quota-modal');
+            // Auto-save so the user can resume tomorrow without any extra clicks
+            let autoSaved = false;
+            if (hasConsent()) {
+              await saveState(APP).catch(() => {});
+              autoSaved = true;
+              addLog('State saved to IndexedDB', 'info');
+            }
+            openQuotaModal(autoSaved);
             throw new DOMException('Aborted', 'AbortError');
           }
           addLog(`Error in period ${period.label}: ${err.message}`, 'error');
         }
 
+        APP.progress.completedTaskKeys.add(taskKey);
         APP.progress.done++;
         updateProgressUI(APP.progress);
 
@@ -1024,20 +1057,79 @@ async function abortAndDiscard() {
 
 let pendingConsentCallback = null;
 
+/** Show the quota modal with reset time and auto-save status. */
+function openQuotaModal(autoSaved = false) {
+  // Compute next quota reset time (YouTube resets at midnight Pacific Time)
+  const resetEl = document.getElementById('quota-reset-time');
+  if (resetEl) {
+    const resetTime = getQuotaResetTime();
+    const locale = getCurrentLang() === 'ja' ? 'ja-JP' : 'en-US';
+    resetEl.textContent = t('quota_reset_at').replace('{time}',
+      resetTime.toLocaleString(locale, { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
+  }
+  const savedMsg = document.getElementById('quota-autosaved-msg');
+  if (savedMsg) savedMsg.hidden = !autoSaved;
+  // Hide manual save button if already saved
+  const saveBtn = document.getElementById('quota-save-btn');
+  if (saveBtn) saveBtn.hidden = autoSaved;
+  showModal('quota-modal');
+}
+
+/** Return the next YouTube API quota reset time as a Date in local time. */
+function getQuotaResetTime() {
+  const now = new Date();
+  // YouTube resets at midnight Pacific Time (UTC-7 PDT / UTC-8 PST)
+  const month = now.getUTCMonth() + 1;
+  const ptOffset = (month >= 4 && month <= 10) ? -7 : -8; // rough DST approximation
+  const resetHourUTC = -ptOffset; // 7 or 8
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), resetHourUTC, 0, 0));
+  if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+  return next;
+}
+
 async function handleQuotaSave() {
   if (!hasConsent()) {
     pendingConsentCallback = async () => {
       if (hasConsent()) {
         await saveState(APP);
-        alert('データを保存しました。クォータリセット後に再開できます。');
       }
-      showSection('search-section');
+      showSavedAndNavigate();
     };
     showModal('consent-modal');
     return;
   }
   await saveState(APP);
+  showSavedAndNavigate();
+}
+
+function showSavedAndNavigate() {
+  document.getElementById('resume-section')?.removeAttribute('hidden');
+  populateResumeBanner(APP);
   showSection('search-section');
+}
+
+/** Fill the resume banner subtitle with saved-at time and task progress. */
+function populateResumeBanner(stateOrProgress) {
+  const detail = document.getElementById('resume-banner-detail');
+  if (!detail) return;
+
+  // Accept either full APP state or a saved state snapshot
+  const progress = stateOrProgress.progress || stateOrProgress;
+  const savedAt  = stateOrProgress.savedAt || Date.now();
+
+  const locale = getCurrentLang() === 'ja' ? 'ja-JP' : 'en-US';
+  const dateStr = new Date(savedAt).toLocaleString(locale, {
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  });
+
+  const done  = progress.completedTaskKeys instanceof Set
+    ? progress.completedTaskKeys.size
+    : (progress.done || 0);
+  const total = progress.total || 0;
+
+  detail.textContent = total > 0
+    ? `${t('resume_saved_at').replace('{time}', dateStr)} | ${t('resume_tasks_done').replace('{done}', done).replace('{total}', total)}`
+    : t('resume_saved_at').replace('{time}', dateStr);
 }
 
 // ──────────────────────────────────────────────────────────
@@ -1284,17 +1376,18 @@ function resetResults() {
 
 function resetProgress() {
   APP.progress = {
-    total:           0,
-    done:            0,
-    quotaUsed:       0,
-    startTime:       null,
-    currentTask:     '',
-    videosJa:        0,
-    videosEn:        0,
-    commentsJa:      0,
-    commentsEn:      0,
-    commentsUnknown: 0,
-    logs:            [],
+    total:             0,
+    done:              0,
+    quotaUsed:         0,
+    startTime:         null,
+    currentTask:       '',
+    videosJa:          0,
+    videosEn:          0,
+    commentsJa:        0,
+    commentsEn:        0,
+    commentsUnknown:   0,
+    logs:              [],
+    completedTaskKeys: new Set(),
   };
   updateProgressUI(APP.progress);
 }
