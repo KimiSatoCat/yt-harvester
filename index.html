@@ -16,6 +16,10 @@
           integrity="sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg=="
           crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
+  <!-- ExcelJS (for KH Coder xlsx generation) -->
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -87,6 +91,20 @@
       <div class="card-body">
         <div class="settings-grid">
 
+          <!-- Collection mode -->
+          <div class="settings-row full">
+            <label class="field-label" data-i18n="collection_mode">収集モード</label>
+            <div class="date-mode-seg">
+              <input type="radio" name="collection-mode" id="mode-titles-only" value="titles" />
+              <label for="mode-titles-only" data-i18n="mode_titles_only">タイトルのみ</label>
+              <input type="radio" name="collection-mode" id="mode-full-collect" value="full" checked />
+              <label for="mode-full-collect" data-i18n="mode_full">タイトル＋コメント</label>
+            </div>
+            <p class="field-hint mt-4" id="mode-hint-titles" data-i18n="mode_hint_titles" hidden>
+              コメントを取得せず，動画タイトル・投稿日時のみ収集して時系列分布を確認します。
+            </p>
+          </div>
+
           <!-- Date range -->
           <div class="settings-row full">
             <div class="date-range-header">
@@ -135,7 +153,18 @@
                 <option value="month" selected data-i18n="split_month">月</option>
                 <option value="quarter" data-i18n="split_quarter">四半期</option>
                 <option value="year"    data-i18n="split_year">年</option>
+                <option value="custom"  data-i18n="split_custom">カスタム（手動指定）</option>
               </select>
+              <!-- Custom periods editor (shown when split-unit = custom) -->
+              <div id="custom-periods-editor" class="mt-8" hidden>
+                <p class="text-xs text-dim mb-4" data-i18n="custom_periods_hint">
+                  収集する期間を個別に指定します。
+                </p>
+                <div id="custom-periods-list"></div>
+                <button class="btn btn-secondary btn-sm mt-4" id="add-custom-period-btn" type="button" data-i18n="custom_period_add">
+                  ＋ 期間を追加
+                </button>
+              </div>
             </div>
           </div>
 
@@ -148,8 +177,8 @@
             </select>
           </div>
 
-          <!-- Comment limit -->
-          <div class="settings-row">
+          <!-- Comment limit (hidden in titles-only mode) -->
+          <div class="settings-row" id="comment-limit-row">
             <label class="field-label" for="comments-limit-select" data-i18n="comment_limit">1動画あたりのコメント取得数</label>
             <select id="comments-limit-select" class="field-select">
               <option value="100"  data-i18n="limit_100">100件</option>
@@ -166,15 +195,31 @@
 
         </div>
 
-        <!-- Quota estimate -->
+        <!-- Quota estimate breakdown -->
         <div class="quota-estimate mt-12">
-          <div class="quota-label">
-            <span data-i18n="quota_estimate">クォータ消費見積り:</span>
-            <strong id="quota-estimate-value">—</strong>
-            <span data-i18n="quota_daily_limit">/ 10,000（1日上限）</span>
+          <div class="quota-breakdown">
+            <div class="quota-breakdown-row">
+              <span class="quota-breakdown-label" data-i18n="quota_titles_label">タイトル取得フェーズ</span>
+              <span class="quota-breakdown-val" id="quota-titles-value">—</span>
+            </div>
+            <div class="quota-breakdown-row" id="quota-comments-row">
+              <span class="quota-breakdown-label" data-i18n="quota_comments_label">コメント取得フェーズ（推定）</span>
+              <span class="quota-breakdown-val" id="quota-comments-value">—</span>
+            </div>
+            <div class="quota-breakdown-row quota-breakdown-total">
+              <span class="quota-breakdown-label">
+                <span data-i18n="quota_estimate">クォータ消費見積り:</span>
+                <strong id="quota-estimate-value">—</strong>
+                <span class="text-dim" data-i18n="quota_daily_limit">/ 10,000（1日上限）</span>
+              </span>
+            </div>
           </div>
-          <div class="quota-bar-track">
+          <div class="quota-bar-track mt-4">
             <div id="quota-estimate-bar" class="quota-bar-fill"></div>
+          </div>
+          <div id="quota-over-warning" class="warning-banner mt-4" hidden>
+            <span>⚠</span>
+            <span data-i18n="quota_warning_over">推定クォータが1日の上限（10,000）を超えます。期間をさらに細かく分割してください。</span>
           </div>
         </div>
 
@@ -308,6 +353,12 @@
           <button class="btn btn-primary" id="download-btn" style="min-width:200px" data-i18n="download_zip">ZIPをダウンロード</button>
           <button class="btn btn-secondary btn-sm" id="home-btn" data-i18n="download_home">ホームに戻る</button>
           <button class="btn btn-ghost btn-sm" id="new-collection-btn" data-i18n="download_new_collection">新しい収集を開始</button>
+        </div>
+
+        <!-- Temporal distribution table (shown after titles-only collection) -->
+        <div id="distribution-section" class="mt-12" style="text-align:left" hidden>
+          <h3 class="mb-8" data-i18n="section_distribution">動画の時系列分布</h3>
+          <div id="distribution-table-container"></div>
         </div>
 
         <!-- Log panel in download section too -->

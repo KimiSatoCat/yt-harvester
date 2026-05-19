@@ -335,17 +335,19 @@ class YouTubeAPI {
 
 /**
  * Estimate quota cost for a collection run.
- * Used to display an estimate in the UI before starting.
+ * Returns { titles, comments, total } so the UI can show a breakdown
+ * and warn when either phase alone might exceed the daily limit.
  */
 function estimateQuota({ numConditions, numPeriods, numLanguages, estimatedVideosPerSearch = 50, commentsPerVideo = 100 }) {
-  const searchCalls  = numConditions * numPeriods * numLanguages; // may paginate
+  const searchCalls  = numConditions * numPeriods * numLanguages;
   const searchQuota  = searchCalls * 100 * Math.ceil(estimatedVideosPerSearch / 50);
   const totalVideos  = searchCalls * estimatedVideosPerSearch;
-  const videoQuota   = Math.ceil(totalVideos / 50); // batches of 50
+  const videoQuota   = Math.ceil(totalVideos / 50);
+  const channelQuota = Math.ceil(totalVideos / 50);
   const commentPages = Math.ceil(commentsPerVideo / 100);
   const commentQuota = totalVideos * commentPages;
-  const channelQuota = Math.ceil(totalVideos / 50); // one batch per 50 unique channels
-  return searchQuota + videoQuota + commentQuota + channelQuota;
+  const titles = searchQuota + videoQuota + channelQuota;
+  return { titles, comments: commentQuota, total: titles + commentQuota };
 }
 
 export { YouTubeAPI, estimateQuota, sleep };

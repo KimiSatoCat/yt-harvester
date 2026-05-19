@@ -9,6 +9,7 @@ import {
   showFieldError, clearFieldError,
   openDictEditor,
   updateQuotaEstimate,
+  renderDistributionTable,
 } from './ui.js';
 import { YouTubeAPI, estimateQuota, sleep } from './api.js';
 import { detectLanguage, matchesLanguage } from './language.js';
@@ -30,12 +31,14 @@ const APP = {
   abortController: null,
 
   settings: {
-    dateStart:       null,
-    dateEnd:         null,
-    splitPeriod:     false,
-    splitUnit:       'month',
-    languages:       ['ja', 'en'],
+    dateStart:        null,
+    dateEnd:          null,
+    splitPeriod:      false,
+    splitUnit:        'month',
+    languages:        ['ja', 'en'],
     commentsPerVideo: null,
+    collectionMode:   'full',
+    customPeriods:    [],
   },
 
   results: {
@@ -227,32 +230,32 @@ function buildAPIQuery(condition) {
 // ──────────────────────────────────────────────────────────
 
 function updateQuotaEstimateDisplay() {
-  const conditions = getActiveConditions();
+  const conditions  = getActiveConditions();
+  const mode        = document.querySelector('input[name="collection-mode"]:checked')?.value || 'full';
   const splitPeriod = document.getElementById('split-period-toggle')?.checked;
   const splitUnit   = document.getElementById('split-unit-select')?.value || 'month';
-  const langVal     = document.getElementById('language-select')?.value || 'ja';
   const limitVal    = document.getElementById('comments-limit-select')?.value || 'unlimited';
   const dateStart   = document.getElementById('date-start')?.value;
   const dateEnd     = document.getElementById('date-end')?.value;
 
   let periods = 1;
-  if (splitPeriod && dateStart && dateEnd) {
-    const generated = generatePeriods(dateStart, dateEnd, splitUnit);
-    periods = generated.length;
+  if (splitUnit === 'custom') {
+    periods = Math.max(getCustomPeriods().length, 1);
+  } else if (splitPeriod && dateStart && dateEnd) {
+    periods = generatePeriods(dateStart, dateEnd, splitUnit).length;
   }
 
-  const numLangs = 1;
   const commentsPerVideo = limitVal === 'unlimited' ? 500 : parseInt(limitVal) || 100;
 
   const estimate = estimateQuota({
     numConditions: Math.max(conditions.length, 1),
     numPeriods: periods,
-    numLanguages: numLangs,
+    numLanguages: 1,
     estimatedVideosPerSearch: 50,
     commentsPerVideo,
   });
 
-  updateQuotaEstimate(estimate);
+  updateQuotaEstimate(estimate, mode);
 }
 
 // ──────────────────────────────────────────────────────────
@@ -291,6 +294,47 @@ function generatePeriods(startDate, endDate, unit) {
   }
 
   return periods;
+}
+
+// ──────────────────────────────────────────────────────────
+// Custom periods management
+// ──────────────────────────────────────────────────────────
+
+function addCustomPeriodRow(data = null) {
+  const list = document.getElementById('custom-periods-list');
+  if (!list) return;
+
+  const row = document.createElement('div');
+  row.className = 'custom-period-row';
+  row.innerHTML = `
+    <input type="date" class="field-input cp-start" value="${data?.start || ''}" />
+    <span class="cp-arrow">→</span>
+    <input type="date" class="field-input cp-end" value="${data?.end || ''}" />
+    <button class="btn btn-ghost btn-sm btn-danger cp-remove" type="button">${t('custom_period_remove')}</button>
+  `;
+  row.querySelector('.cp-remove').addEventListener('click', () => {
+    row.remove();
+    updateQuotaEstimateDisplay();
+  });
+  row.querySelectorAll('input[type=date]').forEach(el =>
+    el.addEventListener('change', updateQuotaEstimateDisplay)
+  );
+  list.appendChild(row);
+  updateQuotaEstimateDisplay();
+}
+
+function getCustomPeriods() {
+  return Array.from(document.querySelectorAll('.custom-period-row'))
+    .map(row => ({
+      start: row.querySelector('.cp-start')?.value,
+      end:   row.querySelector('.cp-end')?.value,
+    }))
+    .filter(p => p.start && p.end && p.start <= p.end)
+    .map(p => ({
+      publishedAfter:  p.start + 'T00:00:00Z',
+      publishedBefore: p.end   + 'T23:59:59Z',
+      label: `${p.start} – ${p.end}`,
+    }));
 }
 
 // ──────────────────────────────────────────────────────────
@@ -408,12 +452,41 @@ function setupGlobalEventListeners() {
   document.getElementById('log-header')
     .addEventListener('click', toggleLog);
 
+  // Collection mode toggle
+  document.querySelectorAll('input[name="collection-mode"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      const mode = document.querySelector('input[name="collection-mode"]:checked')?.value || 'full';
+      const isTitles = mode === 'titles';
+      const commentLimitRow = document.getElementById('comment-limit-row');
+      if (commentLimitRow) commentLimitRow.hidden = isTitles;
+      const modeHint = document.getElementById('mode-hint-titles');
+      if (modeHint) modeHint.hidden = !isTitles;
+      updateQuotaEstimateDisplay();
+    });
+  });
+
   // Period split toggle
   document.getElementById('split-period-toggle')
     .addEventListener('change', (e) => {
       document.getElementById('split-options').hidden = !e.target.checked;
+      // Reset custom unit when hiding split options
+      if (!e.target.checked) {
+        document.getElementById('custom-periods-editor').hidden = true;
+      }
       updateQuotaEstimateDisplay();
     });
+
+  // Split unit change – show/hide custom periods editor
+  document.getElementById('split-unit-select')
+    .addEventListener('change', (e) => {
+      const isCustom = e.target.value === 'custom';
+      document.getElementById('custom-periods-editor').hidden = !isCustom;
+      updateQuotaEstimateDisplay();
+    });
+
+  // Add custom period row
+  document.getElementById('add-custom-period-btn')
+    ?.addEventListener('click', () => addCustomPeriodRow());
 
   // Comment limit warning
   document.getElementById('comments-limit-select')
@@ -423,7 +496,7 @@ function setupGlobalEventListeners() {
     });
 
   // Live quota estimate updates
-  ['date-start', 'date-end', 'language-select', 'split-unit-select'].forEach(id => {
+  ['date-start', 'date-end', 'language-select'].forEach(id => {
     document.getElementById(id)?.addEventListener('change', updateQuotaEstimateDisplay);
   });
 
@@ -507,6 +580,9 @@ async function startCollection() {
     return;
   }
 
+  const splitUnit     = document.getElementById('split-unit-select').value;
+  const collectionMode = document.querySelector('input[name="collection-mode"]:checked')?.value || 'full';
+
   APP.settings = {
     queries: conditions.map(c => ({
       must: c.must,
@@ -516,12 +592,14 @@ async function startCollection() {
     })),
     dateStart,
     dateEnd,
-    splitPeriod: document.getElementById('split-period-toggle').checked,
-    splitUnit:   document.getElementById('split-unit-select').value,
-    languages:   getSelectedLanguages(),
-    commentsPerVideo: getCommentLimit(),
-    comment_order: 'time',
-    comment_depth: 'all_replies',
+    splitPeriod:      document.getElementById('split-period-toggle').checked,
+    splitUnit,
+    languages:        getSelectedLanguages(),
+    commentsPerVideo: collectionMode === 'titles' ? null : getCommentLimit(),
+    comment_order:    'time',
+    comment_depth:    'all_replies',
+    collectionMode,
+    customPeriods:    splitUnit === 'custom' ? getCustomPeriods() : [],
   };
 
   if (!APP.isResuming) {
@@ -560,6 +638,7 @@ async function startCollection() {
       addLog('Collection completed', 'info');
       showSection('download-section');
       updateDownloadSummary();
+      refreshDistributionSection();
     }
   } catch (err) {
     APP.isCollecting = false;
@@ -591,6 +670,25 @@ async function waitIfPaused(signal) {
 }
 
 // ──────────────────────────────────────────────────────────
+// Distribution section helper
+// ──────────────────────────────────────────────────────────
+
+function refreshDistributionSection() {
+  const distSection = document.getElementById('distribution-section');
+  if (!distSection) return;
+
+  if (APP.settings.collectionMode === 'titles') {
+    const allVideos = [
+      ...(APP.results.videos.ja || []),
+      ...(APP.results.videos.en || []),
+    ];
+    renderDistributionTable(allVideos, APP.settings.commentsPerVideo || 100);
+  } else {
+    distSection.hidden = true;
+  }
+}
+
+// ──────────────────────────────────────────────────────────
 // Main collection loop
 // ──────────────────────────────────────────────────────────
 
@@ -603,11 +701,16 @@ async function runCollection() {
     updateProgressUI(APP.progress);
   });
 
-  const periods = settings.splitPeriod
-    ? generatePeriods(settings.dateStart, settings.dateEnd, settings.splitUnit)
-    : [{ publishedAfter:  settings.dateStart + 'T00:00:00Z',
-         publishedBefore: settings.dateEnd   + 'T23:59:59Z',
-         label: `${settings.dateStart} – ${settings.dateEnd}` }];
+  let periods;
+  if (settings.splitUnit === 'custom' && settings.customPeriods?.length > 0) {
+    periods = settings.customPeriods;
+  } else if (settings.splitPeriod) {
+    periods = generatePeriods(settings.dateStart, settings.dateEnd, settings.splitUnit);
+  } else {
+    periods = [{ publishedAfter:  settings.dateStart + 'T00:00:00Z',
+                 publishedBefore: settings.dateEnd   + 'T23:59:59Z',
+                 label: `${settings.dateStart} – ${settings.dateEnd}` }];
+  }
 
   const totalTasks = settings.queries.length * settings.languages.length * periods.length;
   APP.progress.total = totalTasks;
@@ -626,7 +729,7 @@ async function runCollection() {
         addLog(`Searching: "${condition.query}" [${lang}] ${period.label}`);
 
         try {
-          await collectForConditionPeriodLang(api, condition, period, lang, signal);
+          await collectForConditionPeriodLang(api, condition, period, lang, signal, settings.collectionMode);
         } catch (err) {
           if (err.name === 'AbortError') throw err;
           if (err.code === 'quotaExceeded') {
@@ -650,7 +753,7 @@ async function runCollection() {
   }
 }
 
-async function collectForConditionPeriodLang(api, condition, period, lang, signal) {
+async function collectForConditionPeriodLang(api, condition, period, lang, signal, mode = 'full') {
   // 1. Search for video IDs
   const videoIds = await api.searchVideos(
     condition.query,
@@ -689,6 +792,9 @@ async function collectForConditionPeriodLang(api, condition, period, lang, signa
     }
     updateProgressUI(APP.progress);
   }
+
+  // Steps 4 & 5 are skipped in titles-only mode to conserve quota
+  if (mode === 'titles') return;
 
   // 4. Fetch channel info for new channels (batched)
   const newChannelIds = [...new Set(
@@ -846,6 +952,7 @@ async function abortAndDownload() {
   APP.isCollecting = false;
   showSection('download-section');
   updateDownloadSummary();
+  refreshDistributionSection();
 }
 
 async function abortAndSave() {
@@ -929,11 +1036,34 @@ function restoreUIFromSettings(settings) {
     document.getElementById('split-period-toggle').checked = true;
     document.getElementById('split-options').hidden = false;
   }
-  if (settings.splitUnit)
+  if (settings.splitUnit) {
     document.getElementById('split-unit-select').value = settings.splitUnit;
+    // Restore custom periods editor
+    if (settings.splitUnit === 'custom') {
+      document.getElementById('custom-periods-editor').hidden = false;
+      document.getElementById('custom-periods-list').innerHTML = '';
+      for (const p of settings.customPeriods || []) {
+        addCustomPeriodRow({
+          start: p.publishedAfter?.substring(0, 10),
+          end:   p.publishedBefore?.substring(0, 10),
+        });
+      }
+    }
+  }
   if (settings.languages) {
     const langVal = settings.languages[0] === 'en' ? 'en' : 'ja';
     document.getElementById('language-select').value = langVal;
+  }
+
+  // Restore collection mode
+  if (settings.collectionMode) {
+    const modeEl = document.querySelector(`input[name="collection-mode"][value="${settings.collectionMode}"]`);
+    if (modeEl) modeEl.checked = true;
+    const isTitles = settings.collectionMode === 'titles';
+    const commentLimitRow = document.getElementById('comment-limit-row');
+    if (commentLimitRow) commentLimitRow.hidden = isTitles;
+    const modeHint = document.getElementById('mode-hint-titles');
+    if (modeHint) modeHint.hidden = !isTitles;
   }
 
   // Restore conditions
@@ -1000,14 +1130,17 @@ function exportConditions() {
     must: c.must, any: c.any, not: c.not,
     query: buildAPIQuery(c),
   }));
+  const splitUnit = document.getElementById('split-unit-select').value;
   const data = {
     queries:         conditions,
     dateStart:       document.getElementById('date-start').value,
     dateEnd:         document.getElementById('date-end').value,
     splitPeriod:     document.getElementById('split-period-toggle').checked,
-    splitUnit:       document.getElementById('split-unit-select').value,
+    splitUnit,
     languages:       getSelectedLanguages(),
     commentsPerVideo: getCommentLimit(),
+    collectionMode:  document.querySelector('input[name="collection-mode"]:checked')?.value || 'full',
+    customPeriods:   splitUnit === 'custom' ? getCustomPeriods() : [],
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   downloadBlob(blob, 'conditions.json');
@@ -1040,6 +1173,26 @@ async function importConditions(e) {
     if (data.languages) {
       const val = data.languages[0] === 'en' ? 'en' : 'ja';
       document.getElementById('language-select').value = val;
+    }
+    if (data.collectionMode) {
+      const modeEl = document.querySelector(`input[name="collection-mode"][value="${data.collectionMode}"]`);
+      if (modeEl) modeEl.checked = true;
+      const isTitles = data.collectionMode === 'titles';
+      const commentLimitRow = document.getElementById('comment-limit-row');
+      if (commentLimitRow) commentLimitRow.hidden = isTitles;
+      const modeHint = document.getElementById('mode-hint-titles');
+      if (modeHint) modeHint.hidden = !isTitles;
+    }
+    if (data.splitUnit === 'custom' && data.customPeriods?.length > 0) {
+      document.getElementById('split-unit-select').value = 'custom';
+      document.getElementById('custom-periods-editor').hidden = false;
+      document.getElementById('custom-periods-list').innerHTML = '';
+      for (const p of data.customPeriods) {
+        addCustomPeriodRow({
+          start: p.publishedAfter?.substring(0, 10),
+          end:   p.publishedBefore?.substring(0, 10),
+        });
+      }
     }
     updateQuotaEstimateDisplay();
   } catch {

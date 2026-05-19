@@ -1,5 +1,10 @@
 // csv.js – CSV/TSV generation, ZIP assembly, and manifest building
 
+import { buildCommentsXlsx }      from './khcoder/buildCommentsXlsx.js';
+import { buildVideosXlsx }        from './khcoder/buildVideosXlsx.js';
+import { buildCollectionManifest } from './khcoder/buildManifest.js';
+import { buildKhcoderReadme }     from './khcoder/readme.js';
+
 // ──────────────────────────────────────────────────────────
 // Low-level CSV/TSV helpers
 // ──────────────────────────────────────────────────────────
@@ -467,6 +472,36 @@ async function generateZip(state, apiKey, onProgress = null) {
 
   if (onProgress) onProgress(80);
 
+  // ── khcoder/ XLSX files ───────────────────────────────────
+  // Track post-filter counts for collection_manifest.json
+  const khcoderCounts = { commentsAfterFilter: 0, videosAfterFilter: 0 };
+  try {
+    if (hasJa) {
+      const [cResult, vResult] = await Promise.all([
+        buildCommentsXlsx(jaComments, jaVideos, 'ja'),
+        buildVideosXlsx(jaVideos, 'ja'),
+      ]);
+      khFolder.file('khcoder_comments.xlsx', cResult.buffer);
+      khFolder.file('khcoder_videos.xlsx',   vResult.buffer);
+      khcoderCounts.commentsAfterFilter += cResult.count;
+      khcoderCounts.videosAfterFilter   += vResult.count;
+    }
+    if (hasEn) {
+      const [cEnResult, vEnResult] = await Promise.all([
+        buildCommentsXlsx(enComments, enVideos, 'en'),
+        buildVideosXlsx(enVideos, 'en'),
+      ]);
+      khFolder.file('khcoder_comments_en.xlsx', cEnResult.buffer);
+      khFolder.file('khcoder_videos_en.xlsx',   vEnResult.buffer);
+    }
+    khFolder.file('README.md', buildKhcoderReadme(state));
+  } catch (xlsxErr) {
+    // xlsx generation failure must not block ZIP download
+    console.warn('KH Coder xlsx generation failed (ZIP continues without xlsx):', xlsxErr);
+  }
+
+  if (onProgress) onProgress(88);
+
   // ── logs/ ─────────────────────────────────────────────────
   const logsFolder = zip.folder('logs');
   logsFolder.file('collection_log.txt', buildCollectionLog(state.progress.logs));
@@ -476,6 +511,14 @@ async function generateZip(state, apiKey, onProgress = null) {
 
   const manifest = await buildManifest(state, fileList, apiKey);
   zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+
+  // collection_manifest.json – research reproducibility record (§3.6)
+  try {
+    const collManifest = await buildCollectionManifest(state, khcoderCounts);
+    zip.file('collection_manifest.json', collManifest);
+  } catch (manifestErr) {
+    console.warn('collection_manifest.json generation failed:', manifestErr);
+  }
 
   if (onProgress) onProgress(90);
 

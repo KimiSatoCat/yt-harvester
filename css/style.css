@@ -517,12 +517,81 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   margin-top: 6px;
 }
 
+/* ── Field hint (small descriptive text below a field) ──────────── */
+.field-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 6px 10px;
+  background: var(--bg-raised);
+  border-left: 2px solid var(--accent-dim);
+  border-radius: var(--radius-sm);
+}
+
+/* ── Custom period rows ─────────────────────────────────────────── */
+.custom-period-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.custom-period-row .field-input { flex: 1; }
+.custom-period-row .cp-arrow {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
 /* ── Quota estimate bar ─────────────────────────────────────────── */
 .quota-estimate {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
+
+/* Quota breakdown table */
+.quota-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: 0.75rem;
+}
+
+.quota-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.quota-breakdown-row:last-child { border-bottom: none; }
+.quota-breakdown-row[hidden] { display: none; }
+
+.quota-breakdown-total {
+  background: var(--bg-overlay);
+  padding: 6px 10px;
+}
+
+.quota-breakdown-label { color: var(--text-tertiary); }
+.quota-breakdown-total .quota-breakdown-label { color: var(--text-secondary); }
+
+.quota-breakdown-val {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-primary);
+}
+
+.quota-breakdown-total strong {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  margin: 0 4px;
+}
+
 .quota-bar-track {
   height: 4px;
   background: var(--bg-raised);
@@ -540,6 +609,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .quota-bar-fill.quota-bar-warn  { background: var(--warn); }
 .quota-bar-fill.quota-bar-danger { background: var(--error); }
 
+/* Legacy quota-label (kept for any remaining references) */
 .quota-label {
   display: flex;
   justify-content: space-between;
@@ -551,6 +621,42 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   font-family: var(--font-mono);
   font-size: 0.8125rem;
   color: var(--text-primary);
+}
+
+/* ── Temporal distribution table ────────────────────────────────── */
+.dist-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+  margin-bottom: 8px;
+}
+.dist-table th {
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+.dist-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+}
+.dist-table tr:last-child td { border-bottom: none; }
+.dist-table tr:hover td { background: var(--bg-raised); }
+.dist-num {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+.dist-hint {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  font-style: italic;
 }
 
 /* ── Toolbar (import/export/add) ────────────────────────────────── */

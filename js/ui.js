@@ -375,16 +375,93 @@ function parseDictText(text) {
 // Quota estimate display
 // ──────────────────────────────────────────────────────────
 
-function updateQuotaEstimate(estimate) {
-  const el = document.getElementById('quota-estimate-value');
-  if (el) el.textContent = (estimate || 0).toLocaleString();
+/**
+ * @param {{ titles: number, comments: number, total: number } | number} estimate
+ * @param {'full'|'titles'} mode
+ */
+function updateQuotaEstimate(estimate, mode = 'full') {
+  const isObj    = typeof estimate === 'object' && estimate !== null;
+  const titles   = isObj ? (estimate.titles   || 0) : estimate;
+  const comments = isObj ? (estimate.comments || 0) : 0;
+  const total    = isObj ? (estimate.total    || 0) : estimate;
+
+  setTextContent('quota-titles-value',   titles.toLocaleString());
+  setTextContent('quota-comments-value', comments.toLocaleString());
+
+  const commentsRow = document.getElementById('quota-comments-row');
+  if (commentsRow) commentsRow.hidden = (mode === 'titles');
+
+  const displayTotal = mode === 'titles' ? titles : total;
+  setTextContent('quota-estimate-value', displayTotal.toLocaleString());
 
   const bar = document.getElementById('quota-estimate-bar');
   if (bar) {
-    const pct = Math.min((estimate / 10000) * 100, 100);
+    const pct = Math.min((displayTotal / 10000) * 100, 100);
     bar.style.width = `${pct}%`;
     bar.className = 'quota-bar-fill' + (pct > 80 ? ' quota-bar-danger' : pct > 50 ? ' quota-bar-warn' : '');
   }
+
+  const warningEl = document.getElementById('quota-over-warning');
+  if (warningEl) warningEl.hidden = displayTotal <= 10000;
+}
+
+// ──────────────────────────────────────────────────────────
+// Temporal distribution table
+// ──────────────────────────────────────────────────────────
+
+/**
+ * Render a yearly distribution table for the collected videos.
+ * Shows estimated comment-fetch quota per year so the user can identify
+ * years that need finer period splitting before comment collection.
+ *
+ * @param {Array} videos  – combined ja + en video objects (each has published_at)
+ * @param {number|null} commentsPerVideo
+ */
+function renderDistributionTable(videos, commentsPerVideo) {
+  const section   = document.getElementById('distribution-section');
+  const container = document.getElementById('distribution-table-container');
+  if (!section || !container) return;
+
+  // Group by year
+  const byYear = {};
+  for (const v of videos) {
+    const year = v.published_at?.substring(0, 4);
+    if (year) byYear[year] = (byYear[year] || 0) + 1;
+  }
+
+  const entries = Object.entries(byYear).sort(([a], [b]) => a.localeCompare(b));
+  section.hidden = entries.length === 0;
+  if (entries.length === 0) return;
+
+  const DAILY_QUOTA  = 10000;
+  const cPerVid      = commentsPerVideo || 100;
+  const commentPages = Math.ceil(cPerVid / 100);
+
+  const rows = entries.map(([year, count]) => {
+    const cq     = count * commentPages;
+    const isOver = cq > DAILY_QUOTA;
+    return `<tr>
+      <td>${year}</td>
+      <td class="dist-num">${count.toLocaleString()}</td>
+      <td class="dist-num${isOver ? ' text-error' : ''}">${cq.toLocaleString()}</td>
+      <td class="${isOver ? 'text-warn' : 'text-accent'}">${isOver ? t('dist_needs_split') : t('dist_ok')}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <table class="dist-table">
+      <thead>
+        <tr>
+          <th>${t('dist_year')}</th>
+          <th>${t('dist_videos')}</th>
+          <th>${t('dist_comment_quota')}</th>
+          <th>${t('dist_status')}</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="dist-hint">${t('dist_hint')}</p>
+  `;
 }
 
 export {
@@ -396,4 +473,5 @@ export {
   showFieldError, clearFieldError,
   openDictEditor, parseDictText,
   updateQuotaEstimate,
+  renderDistributionTable,
 };

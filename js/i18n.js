@@ -50,6 +50,13 @@ const TRANSLATIONS = {
 
     // Settings section
     section_settings: '収集設定',
+
+    // Collection mode
+    collection_mode: '収集モード',
+    mode_titles_only: 'タイトルのみ',
+    mode_full: 'タイトル＋コメント',
+    mode_hint_titles: 'コメントを取得せず，動画タイトル・投稿日時のみ収集して時系列分布を確認します。まずこのモードで分布を把握し，次に期間を調整してコメントを取得することでクォータ超過を回避できます。',
+
     date_range: '期間',
     date_mode_calendar: 'カレンダー',
     date_mode_year: '年指定',
@@ -64,6 +71,10 @@ const TRANSLATIONS = {
     split_month: '月',
     split_quarter: '四半期',
     split_year: '年',
+    split_custom: 'カスタム（手動指定）',
+    custom_periods_hint: '収集する期間を個別に指定します。動画数の多い時期は短く，少ない時期は長く設定することでクォータを効率的に利用できます。',
+    custom_period_add: '＋ 期間を追加',
+    custom_period_remove: '削除',
     language: '収集対象言語',
     lang_ja: '日本語のみ',
     lang_en: '英語のみ',
@@ -74,8 +85,12 @@ const TRANSLATIONS = {
     limit_5000: '5000件',
     limit_unlimited: '制限なし（全件）',
     limit_unlimited_warning: '⚠ 「制限なし」選択中：コメント数の多い動画ではAPIクォータを大量消費します',
+    quota_titles_label: 'タイトル取得フェーズ',
+    quota_comments_label: 'コメント取得フェーズ（推定）',
+    quota_total_label: '合計',
     quota_estimate: 'クォータ消費見積り:',
     quota_daily_limit: '/ 10,000（1日上限）',
+    quota_warning_over: '推定クォータが1日の上限（10,000）を超えます。期間をさらに細かく分割するか，収集期間を短くしてください。',
 
     // Start button
     start_collection: '収集を開始',
@@ -121,6 +136,16 @@ const TRANSLATIONS = {
     consent_modal_body: '収集途中のYouTubeコメントデータ（投稿者表示名・コメント本文・チャンネルID等）が、あなたのブラウザのローカルストレージ（IndexedDB）に一時保存されます。本データは外部に送信されず、本ツール以外からアクセスされません。収集完了またはブラウザのキャッシュクリアで削除されます。',
     consent_agree: '同意して保存を有効化',
     consent_deny: '拒否（保存なし）',
+
+    // Temporal distribution table (shown after titles-only collection)
+    section_distribution: '動画の時系列分布',
+    dist_year: '年',
+    dist_videos: '動画数',
+    dist_comment_quota: 'コメント取得クォータ（推定）',
+    dist_status: '状態',
+    dist_needs_split: '⚠ 要分割',
+    dist_ok: '✓ OK',
+    dist_hint: 'コメント取得クォータが10,000を超える年は，期間を細かく分割してコメントを取得することを推奨します。',
 
     // Download section
     section_download: '収集完了',
@@ -211,6 +236,12 @@ const TRANSLATIONS = {
     no_related_terms: 'No suggestions',
 
     section_settings: 'Collection Settings',
+
+    collection_mode: 'Collection Mode',
+    mode_titles_only: 'Titles Only',
+    mode_full: 'Titles + Comments',
+    mode_hint_titles: 'Collect video titles and metadata only (no comments). Use this first to understand temporal distribution, then adjust periods before fetching comments to stay within quota limits.',
+
     date_range: 'Date Range',
     date_mode_calendar: 'Calendar',
     date_mode_year: 'By Year',
@@ -225,6 +256,10 @@ const TRANSLATIONS = {
     split_month: 'Month',
     split_quarter: 'Quarter',
     split_year: 'Year',
+    split_custom: 'Custom (manual)',
+    custom_periods_hint: 'Specify custom date ranges. Use shorter ranges for periods with many videos and longer ranges where videos are sparse.',
+    custom_period_add: '+ Add period',
+    custom_period_remove: 'Remove',
     language: 'Target language',
     lang_ja: 'Japanese only',
     lang_en: 'English only',
@@ -235,8 +270,12 @@ const TRANSLATIONS = {
     limit_5000: '5,000',
     limit_unlimited: 'Unlimited (all comments)',
     limit_unlimited_warning: '⚠ Unlimited selected: heavy API quota usage for videos with many comments',
+    quota_titles_label: 'Titles phase',
+    quota_comments_label: 'Comments phase (est.)',
+    quota_total_label: 'Total',
     quota_estimate: 'Estimated quota:',
     quota_daily_limit: '/ 10,000 (daily limit)',
+    quota_warning_over: 'Estimated quota may exceed the daily limit (10,000). Consider splitting into shorter periods or reducing the date range.',
 
     start_collection: 'Start Collection',
     no_conditions_error: 'Please add at least one valid search condition',
@@ -277,6 +316,15 @@ const TRANSLATIONS = {
     consent_modal_body: 'Collected YouTube comment data (display names, comment text, channel IDs, etc.) will be temporarily stored in your browser\'s local storage (IndexedDB). This data is not transmitted externally and cannot be accessed outside this tool. It will be deleted upon completion or when you clear browser cache.',
     consent_agree: 'Agree & Enable Storage',
     consent_deny: 'Deny (no storage)',
+
+    section_distribution: 'Temporal Distribution',
+    dist_year: 'Year',
+    dist_videos: 'Videos',
+    dist_comment_quota: 'Comment quota (est.)',
+    dist_status: 'Status',
+    dist_needs_split: '⚠ Split needed',
+    dist_ok: '✓ OK',
+    dist_hint: 'Years with estimated comment quota > 10,000 should be split into shorter periods before fetching comments.',
 
     section_download: 'Collection Complete',
     download_summary: 'Summary',
