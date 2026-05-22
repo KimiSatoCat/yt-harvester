@@ -41,7 +41,9 @@ function serializeState(state) {
     },
     progress: {
       ...state.progress,
-      completedTaskKeys: Array.from(state.progress.completedTaskKeys || new Set()),
+      completedTaskKeys:   Array.from(state.progress.completedTaskKeys   || new Set()),
+      completedWindowKeys: Array.from(state.progress.completedWindowKeys || new Set()),
+      truncatedWindowKeys: Array.from(state.progress.truncatedWindowKeys || new Set()),
       logs: (state.progress.logs || []).slice(-500),
     },
     savedAt: Date.now(),
@@ -63,7 +65,9 @@ function deserializeState(raw) {
     },
     progress: {
       ...(raw.progress || {}),
-      completedTaskKeys: new Set(raw.progress?.completedTaskKeys || []),
+      completedTaskKeys:   new Set(raw.progress?.completedTaskKeys   || []),
+      completedWindowKeys: new Set(raw.progress?.completedWindowKeys || []),
+      truncatedWindowKeys: new Set(raw.progress?.truncatedWindowKeys || []),
     },
     savedAt: raw.savedAt,
   };

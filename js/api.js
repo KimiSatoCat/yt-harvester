@@ -160,9 +160,15 @@ class YouTubeAPI {
   }
 
   /**
-   * Search for videos matching a query, paginating up to maxResults total.
-   * Each page costs 100 quota units.
-   * Returns array of video IDs.
+   * Search for videos matching a query within a date window, paginating up to
+   * maxResults total. Each page costs 100 quota units.
+   *
+   * The YouTube Data API returns at most ~500 results per query regardless of
+   * how many videos actually match. This method therefore also reports whether
+   * the window was *truncated* (holds more videos than could be retrieved) so
+   * the caller can subdivide the date window and search again.
+   *
+   * @returns {Promise<{ids: string[], truncated: boolean, totalResults: number}>}
    */
   async searchVideos(query, options = {}, signal = null, onPage = null) {
     const {
@@ -170,11 +176,17 @@ class YouTubeAPI {
       publishedAfter,
       publishedBefore,
       maxResults = 500,
+      // When the API reports more matches than this, stop paginating early so
+      // the caller can subdivide the window instead of spending quota on a
+      // query that is capped at ~500 results anyway.
+      stopIfTotalExceeds = Infinity,
     } = options;
 
     const ids = [];
     let pageToken = null;
     let page = 0;
+    let totalResults = 0;
+    let earlyStop = false;
 
     do {
       if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -194,19 +206,37 @@ class YouTubeAPI {
       const data = await this._request('search', params, signal);
       page++;
 
-      const pageIds = (data.items || []).map(item => item.id.videoId).filter(Boolean);
+      // pageInfo.totalResults from the first page is the API's (approximate)
+      // estimate of how many videos match this query+window.
+      if (page === 1) totalResults = data.pageInfo?.totalResults ?? 0;
+
+      const pageIds = (data.items || []).map(item => item.id?.videoId).filter(Boolean);
       ids.push(...pageIds);
 
-      if (onPage) onPage({ page, found: ids.length });
+      if (onPage) onPage({ page, found: ids.length, totalResults });
 
       pageToken = data.nextPageToken;
+
+      // Window is clearly too large — stop so the caller can subdivide.
+      if (totalResults > stopIfTotalExceeds) { earlyStop = true; break; }
 
       // YouTube API caps effective results at ~500
       if (ids.length >= maxResults) break;
 
     } while (pageToken);
 
-    return [...new Set(ids)];
+    const uniqueIds = [...new Set(ids)];
+
+    // "truncated" = this window holds more videos than we could retrieve.
+    //  - earlyStop: we deliberately stopped because totalResults was huge.
+    //  - pageToken still set: we hit our maxResults cap with more pages waiting.
+    //  - totalResults far exceeds what we got while we collected a near-cap
+    //    number of IDs: the API's hard ~500 ceiling cut us off.
+    const truncated = earlyStop
+      || Boolean(pageToken)
+      || (totalResults > uniqueIds.length + 50 && uniqueIds.length >= 450);
+
+    return { ids: uniqueIds, truncated, totalResults };
   }
 
   /**

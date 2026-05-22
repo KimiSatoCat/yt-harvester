@@ -143,8 +143,8 @@
             <div class="mt-8">
               <div class="split-toggle-row">
                 <label class="checkbox-label">
-                  <input type="checkbox" id="split-period-toggle" />
-                  <span data-i18n="split_period">期間を分割して取得する（1クエリ500件制限を回避）</span>
+                  <input type="checkbox" id="split-period-toggle" checked />
+                  <span data-i18n="split_period">期間を分割して進捗・再開を細かくする</span>
                 </label>
                 <button type="button" class="help-btn" id="split-period-help-btn" aria-label="ヘルプ">?</button>
               </div>
@@ -157,14 +157,14 @@
               <span>⚠</span>
               <span data-i18n="date_range_warning_nosplit">YouTube APIは1クエリあたり最大500件（最新順）のみ返します。長期間を分割なしで取得すると最新の動画しか収集されません。「期間を分割して取得する」を有効化し，分割単位を「年」以上に設定することを強く推奨します。</span>
             </div>
-            <div id="split-options" class="split-options mt-4" hidden>
+            <div id="split-options" class="split-options mt-4">
               <label class="field-label" data-i18n="split_unit">分割単位</label>
               <select id="split-unit-select" class="field-select" style="width:200px">
                 <option value="day"     data-i18n="split_day">日</option>
                 <option value="week"    data-i18n="split_week">週</option>
-                <option value="month" selected data-i18n="split_month">月</option>
+                <option value="month"   data-i18n="split_month">月</option>
                 <option value="quarter" data-i18n="split_quarter">四半期</option>
-                <option value="year"    data-i18n="split_year">年</option>
+                <option value="year" selected data-i18n="split_year">年</option>
                 <option value="custom"  data-i18n="split_custom">カスタム（手動指定）</option>
               </select>
               <!-- Custom periods editor (shown when split-unit = custom) -->
@@ -482,15 +482,19 @@
     <div class="modal-body">
       <p class="modal-desc" data-i18n="quota_modal_desc">本日のYouTube Data APIクォータ（10,000ユニット/日）を超過しました。</p>
       <p id="quota-reset-time" class="modal-desc text-sm text-dim"></p>
-      <p id="quota-autosaved-msg" class="modal-desc text-sm" style="color:var(--color-success, #4caf50)" hidden data-i18n="quota_autosaved_msg">途中データを自動保存しました。明日，ページを開いて「途中から再開」ボタンを押してください。</p>
+      <p id="quota-autosaved-msg" class="modal-desc text-sm" style="color:var(--color-success, #4caf50)" hidden data-i18n="quota_autosaved_msg">途中までのデータはIndexedDBに自動保存済みです。下のいずれかを選んでください。</p>
       <div class="option-list">
-        <button class="option-btn option-primary" id="quota-download-btn">
-          <span class="option-icon">⬇</span>
-          <span data-i18n="quota_option_download">今すぐZIPで出力して終了</span>
+        <button class="option-btn option-primary" id="quota-download-save-btn">
+          <span class="option-icon">⬇💾</span>
+          <span data-i18n="quota_option_download_save">途中までをZIP出力し、進捗も保持する — バックアップを得つつ後で再開できる（推奨）</span>
         </button>
         <button class="option-btn" id="quota-save-btn">
           <span class="option-icon">💾</span>
-          <span data-i18n="quota_option_save">途中データを保存してクォータリセット後に再開</span>
+          <span data-i18n="quota_option_save">保存のみ — クォータ回復後に「途中から再開」で続行（ダウンロードなし）</span>
+        </button>
+        <button class="option-btn" id="quota-download-btn">
+          <span class="option-icon">⬇</span>
+          <span data-i18n="quota_option_download">途中までをZIP出力して終了する（再開しない）</span>
         </button>
       </div>
     </div>

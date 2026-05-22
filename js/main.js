@@ -29,12 +29,13 @@ const APP = {
   isPaused: false,
   isResuming: false,   // true when continuing from a saved IndexedDB state
   abortController: null,
+  keepStateAfterDownload: false,  // true → downloading keeps saved state for resume
 
   settings: {
     dateStart:        null,
     dateEnd:          null,
-    splitPeriod:      false,
-    splitUnit:        'month',
+    splitPeriod:      true,
+    splitUnit:        'year',
     languages:        ['ja', 'en'],
     commentsPerVideo: null,
     collectionMode:   'full',
@@ -62,7 +63,9 @@ const APP = {
     commentsEn:        0,
     commentsUnknown:   0,
     logs:              [],
-    completedTaskKeys: new Set(),
+    completedTaskKeys:   new Set(),  // resume: pre-partitioned period tasks
+    completedWindowKeys: new Set(),  // resume: fully-collected adaptive windows
+    truncatedWindowKeys: new Set(),  // resume: windows known to need subdivision
   },
 };
 
@@ -264,13 +267,15 @@ function updateQuotaEstimateDisplay() {
     mode,
   });
 
-  // Show search call breakdown: "N条件 × M期間 = K回"
+  // Show search call breakdown. The figure is a *lower bound*: dense periods
+  // are automatically subdivided into more queries, so actual search calls and
+  // quota will be higher than this minimum.
   const hintEl = document.getElementById('quota-search-calls-hint');
   if (hintEl) {
     const lang = getCurrentLang();
     hintEl.textContent = lang === 'ja'
-      ? `(${numConditions}条件 × ${numPeriods}期間 = ${estimate.searchCalls}回)`
-      : `(${numConditions} cond × ${numPeriods} periods = ${estimate.searchCalls} calls)`;
+      ? `(${numConditions}条件 × ${numPeriods}期間 = 最低${estimate.searchCalls}回。動画数が多い期間は自動分割でさらに増えます)`
+      : `(${numConditions} cond × ${numPeriods} periods = ${estimate.searchCalls}+ calls; dense periods auto-split into more)`;
   }
 
   updateQuotaEstimate(estimate, mode);
@@ -285,11 +290,9 @@ function updateDateRangeWarning(dateStart, dateEnd, splitPeriod, splitUnit) {
 
   const days = (new Date(dateEnd) - new Date(dateStart)) / (1000 * 60 * 60 * 24);
 
-  // Warn when range > 365 days AND no effective per-period splitting
-  // Custom periods are assumed fine (user defined them explicitly)
-  const isCustom = splitUnit === 'custom';
-  const noSplit  = !splitPeriod || isCustom;
-  el.hidden = !(days > 365 && noSplit);
+  // Informational note for long ranges: collection is exhaustive (no 500-cap
+  // truncation) but may span multiple days due to API quota limits.
+  el.hidden = !(days > 365);
 }
 
 // ──────────────────────────────────────────────────────────
@@ -458,10 +461,12 @@ function setupGlobalEventListeners() {
     .addEventListener('click', () => hideModal('abort-modal'));
 
   // Quota modal options
-  document.getElementById('quota-download-btn')
-    .addEventListener('click', () => { hideModal('quota-modal'); abortAndDownload(); });
+  document.getElementById('quota-download-save-btn')
+    .addEventListener('click', () => { hideModal('quota-modal'); handleQuotaChoice('download-save'); });
   document.getElementById('quota-save-btn')
-    .addEventListener('click', () => { hideModal('quota-modal'); handleQuotaSave(); });
+    .addEventListener('click', () => { hideModal('quota-modal'); handleQuotaChoice('save'); });
+  document.getElementById('quota-download-btn')
+    .addEventListener('click', () => { hideModal('quota-modal'); handleQuotaChoice('download'); });
 
   // Consent modal
   document.getElementById('consent-agree-btn')
@@ -683,6 +688,7 @@ async function startCollection() {
 
   APP.isCollecting = true;
   APP.isPaused     = false;
+  APP.keepStateAfterDownload = false;  // reset per run; quota modal may set it
   APP.abortController = new AbortController();
 
   APP.progress.startTime = Date.now();
@@ -842,18 +848,126 @@ async function runCollection() {
   }
 }
 
+// Finest date window the adaptive search will subdivide down to. A query that
+// returns >500 results inside a single hour is effectively impossible for any
+// realistic research keyword, so 1 hour is a safe floor.
+const MIN_WINDOW_MS = 60 * 60 * 1000;
+
+// If the API estimates more matches than this for a window, subdivide it
+// immediately (one probe page) instead of paginating a query that is capped at
+// ~500 results anyway. Kept just below the cap: over-estimating only costs a
+// few extra probe pages, while paginating a truncated window to the cap and
+// discarding it wastes ~1000 quota units.
+const SUBDIVIDE_TOTAL_HINT = 480;
+
+/** Format a date window as "YYYY-MM-DD–YYYY-MM-DD" for logs and progress. */
+function fmtWindow(afterISO, beforeISO) {
+  return `${afterISO.substring(0, 10)}–${beforeISO.substring(0, 10)}`;
+}
+
 async function collectForConditionPeriodLang(api, condition, period, lang, signal, mode = 'full') {
-  // 1. Search for video IDs
-  const videoIds = await api.searchVideos(
-    condition.query,
-    { lang, publishedAfter: period.publishedAfter, publishedBefore: period.publishedBefore },
-    signal,
-    ({ found }) => {
-      APP.progress.currentTask = `${condition.query} (${lang}) — searching... ${found} videos`;
-      updateProgressUI(APP.progress);
-    }
+  // The search step is exhaustive: each window self-subdivides whenever the
+  // API truncates it, so the full period is covered regardless of how many
+  // videos it contains. `seenIds` deduplicates across sibling windows.
+  const ctx = { seenIds: new Set(), windowsDone: 0 };
+
+  await searchWindow(
+    api, condition, lang,
+    period.publishedAfter, period.publishedBefore,
+    signal, mode, ctx, 0
   );
-  addLog(`Found ${videoIds.length} video IDs`, 'info');
+
+  addLog(
+    `Period ${period.label}: ${ctx.seenIds.size} unique videos across ${ctx.windowsDone} window(s)`,
+    'info'
+  );
+}
+
+/**
+ * Exhaustively collect every video in [afterISO, beforeISO).
+ *
+ * YouTube's search.list returns at most ~500 results per query. When a window
+ * holds more than that, we bisect it by date and recurse — so dense periods
+ * are covered by many small windows while sparse periods stay coarse. This
+ * makes silent truncation (the "only newest 500" bug) structurally impossible.
+ */
+async function searchWindow(api, condition, lang, afterISO, beforeISO, signal, mode, ctx, depth) {
+  if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+  await waitIfPaused(signal);
+
+  const winKey = `${lang}::${condition.query}::W::${afterISO}__${beforeISO}`;
+
+  // Resume: a window already collected in a previous run is skipped entirely.
+  if (APP.progress.completedWindowKeys.has(winKey)) return;
+
+  const spanMs    = Date.parse(beforeISO) - Date.parse(afterISO);
+  const divisible = spanMs > MIN_WINDOW_MS;
+
+  let ids = [];
+  let truncated;
+  let totalResults = 0;
+
+  // Resume: a window already known to be truncated skips the probe query and
+  // goes straight to subdivision, saving 100 quota units per node.
+  if (divisible && APP.progress.truncatedWindowKeys.has(winKey)) {
+    truncated = true;
+  } else {
+    const result = await api.searchVideos(
+      condition.query,
+      {
+        lang,
+        publishedAfter:  afterISO,
+        publishedBefore: beforeISO,
+        stopIfTotalExceeds: divisible ? SUBDIVIDE_TOTAL_HINT : Infinity,
+      },
+      signal,
+      ({ found }) => {
+        APP.progress.currentTask =
+          `${condition.query} (${lang}) — ${fmtWindow(afterISO, beforeISO)} … ${found}件`;
+        updateProgressUI(APP.progress);
+      }
+    );
+    ids = result.ids;
+    truncated = result.truncated;
+    totalResults = result.totalResults;
+  }
+
+  // Window holds more than one query can return → bisect by date and recurse.
+  if (truncated && divisible) {
+    APP.progress.truncatedWindowKeys.add(winKey);
+    const midISO = new Date(Date.parse(afterISO) + Math.floor(spanMs / 2)).toISOString();
+    addLog(`Window ${fmtWindow(afterISO, beforeISO)} saturated (~${totalResults}) — splitting`, 'debug');
+    await searchWindow(api, condition, lang, afterISO, midISO,  signal, mode, ctx, depth + 1);
+    await searchWindow(api, condition, lang, midISO,  beforeISO, signal, mode, ctx, depth + 1);
+    return;
+  }
+
+  if (truncated) {
+    addLog(
+      `Window ${fmtWindow(afterISO, beforeISO)} still saturated at minimum (1h) granularity — some videos may be missed`,
+      'warn'
+    );
+  }
+
+  // Leaf window — collect its not-yet-seen videos.
+  const fresh = ids.filter(id => !ctx.seenIds.has(id));
+  fresh.forEach(id => ctx.seenIds.add(id));
+  ctx.windowsDone++;
+  addLog(`Found ${ids.length} video IDs in ${fmtWindow(afterISO, beforeISO)} (${fresh.length} new)`, 'info');
+
+  await processVideoIds(api, fresh, lang, signal, mode);
+
+  // Checkpoint so a resumed run skips this window.
+  APP.progress.completedWindowKeys.add(winKey);
+  if (hasConsent()) await saveState(APP).catch(() => {});
+}
+
+/**
+ * Process a batch of discovered video IDs: fetch metadata / channels / comments
+ * according to the collection mode, and store the results.
+ */
+async function processVideoIds(api, videoIds, lang, signal, mode = 'full') {
+  if (videoIds.length === 0) return;
 
   // comments-only: skip video details and channel fetch, go straight to comments
   if (mode === 'comments') {
@@ -868,10 +982,8 @@ async function collectForConditionPeriodLang(api, condition, period, lang, signa
     return;
   }
 
-  // 2. Filter out already-cached video IDs
+  // Fetch video metadata only for IDs not already cached
   const newVideoIds = videoIds.filter(id => !APP.results.videoCache.has(id));
-
-  // 3. Fetch video metadata for new IDs
   if (newVideoIds.length > 0) {
     const rawVideos = await api.getVideoDetails(newVideoIds, signal);
     for (const raw of rawVideos) {
@@ -895,10 +1007,10 @@ async function collectForConditionPeriodLang(api, condition, period, lang, signa
     updateProgressUI(APP.progress);
   }
 
-  // Steps 4 & 5 are skipped in titles-only mode to conserve quota
+  // Channels & comments are skipped in titles-only mode to conserve quota
   if (mode === 'titles') return;
 
-  // 4. Fetch channel info for new channels (batched)
+  // Fetch channel info for new channels (batched)
   const newChannelIds = [...new Set(
     videoIds
       .map(id => APP.results.videoCache.get(id)?.channel_id)
@@ -912,7 +1024,7 @@ async function collectForConditionPeriodLang(api, condition, period, lang, signa
     }
   }
 
-  // 5. Fetch comments for each video (with parallelism via Promise.all)
+  // Fetch comments for each video (with parallelism via Promise.all)
   const COMMENT_PARALLEL = 5;
   for (let i = 0; i < videoIds.length; i += COMMENT_PARALLEL) {
     if (signal.aborted) return;
@@ -1102,11 +1214,10 @@ function openQuotaModal(autoSaved = false) {
     resetEl.textContent = t('quota_reset_at').replace('{time}',
       resetTime.toLocaleString(locale, { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }));
   }
+  // Show the "auto-saved" note when applicable, but keep every option
+  // available so the user can always choose download, save, or both.
   const savedMsg = document.getElementById('quota-autosaved-msg');
   if (savedMsg) savedMsg.hidden = !autoSaved;
-  // Hide manual save button if already saved
-  const saveBtn = document.getElementById('quota-save-btn');
-  if (saveBtn) saveBtn.hidden = autoSaved;
   showModal('quota-modal');
 }
 
@@ -1122,19 +1233,48 @@ function getQuotaResetTime() {
   return next;
 }
 
-async function handleQuotaSave() {
-  if (!hasConsent()) {
-    pendingConsentCallback = async () => {
-      if (hasConsent()) {
-        await saveState(APP);
+/**
+ * Handle the user's choice in the API-quota-exceeded modal.
+ *
+ * @param {'download-save'|'save'|'download'} choice
+ *   - 'download-save': export a ZIP backup AND keep saved progress → can resume
+ *   - 'save'         : keep saved progress only, no download        → can resume
+ *   - 'download'     : export a ZIP and finish, saved progress is cleared
+ */
+async function handleQuotaChoice(choice) {
+  if (choice === 'download') {
+    // Export partial data and finish. Saved progress is cleared on download.
+    APP.keepStateAfterDownload = false;
+    abortAndDownload();
+    return;
+  }
+
+  // 'save' and 'download-save' both keep progress in IndexedDB for resuming.
+  const proceed = async () => {
+    const saved = hasConsent();
+    if (saved) await saveState(APP).catch(() => {});
+
+    if (choice === 'download-save') {
+      // Keep the saved state so the user can resume even after downloading.
+      APP.keepStateAfterDownload = saved;
+      if (saved) {
+        document.getElementById('resume-section')?.removeAttribute('hidden');
+        populateResumeBanner(APP);
       }
-      showSavedAndNavigate();
-    };
+      abortAndDownload();
+    } else {
+      // Save only — no download.
+      if (saved) showSavedAndNavigate();
+      else showSection('search-section');
+    }
+  };
+
+  if (!hasConsent()) {
+    pendingConsentCallback = async () => { await proceed(); };
     showModal('consent-modal');
     return;
   }
-  await saveState(APP);
-  showSavedAndNavigate();
+  await proceed();
 }
 
 function showSavedAndNavigate() {
@@ -1248,8 +1388,14 @@ async function downloadResults() {
     });
     const filename = makeZipFilename(APP.progress.startTime);
     downloadBlob(blob, filename);
-    // Clean up saved state if completed normally
-    await clearState();
+    // Keep the saved state for a partial/backup download so the user can still
+    // resume; otherwise (normal completion / "download and finish") clean it up.
+    if (APP.keepStateAfterDownload) {
+      if (hasConsent()) await saveState(APP).catch(() => {});
+      addLog('ZIP exported — saved progress kept for resuming', 'info');
+    } else {
+      await clearState();
+    }
   } catch (err) {
     alert('ZIP生成エラー: ' + err.message);
   } finally {
@@ -1422,7 +1568,9 @@ function resetProgress() {
     commentsEn:        0,
     commentsUnknown:   0,
     logs:              [],
-    completedTaskKeys: new Set(),
+    completedTaskKeys:   new Set(),
+    completedWindowKeys: new Set(),
+    truncatedWindowKeys: new Set(),
   };
   updateProgressUI(APP.progress);
 }
