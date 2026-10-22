@@ -9,10 +9,21 @@ import { buildKhcoderReadme }     from './khcoder/readme.js';
 // Low-level CSV/TSV helpers
 // ──────────────────────────────────────────────────────────
 
+/**
+ * Neutralise spreadsheet formula injection.
+ * A cell starting with = + - @ (or a tab/CR) is treated as a formula by
+ * Excel / Google Sheets; a comment such as "=HYPERLINK(...)" could then run
+ * when the file is opened. Prefix such values with a single quote so they
+ * stay plain text. Numbers are not affected (they never start with these).
+ */
+function neutraliseFormula(str) {
+  return /^[=+\-@\t\r]/.test(str) ? "'" + str : str;
+}
+
 /** Escape a value for CSV (RFC 4180) */
 function escapeCsv(val) {
   if (val === null || val === undefined) return '';
-  const str = String(val);
+  const str = neutraliseFormula(String(val));
   // Always quote if contains comma, double-quote, newline, or carriage return
   if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
     return '"' + str.replace(/"/g, '""') + '"';
@@ -23,7 +34,7 @@ function escapeCsv(val) {
 /** Escape a value for TSV (replace tabs and newlines) */
 function escapeTsv(val) {
   if (val === null || val === undefined) return '';
-  return String(val).replace(/\t/g, ' ').replace(/\n/g, ' ').replace(/\r/g, '');
+  return neutraliseFormula(String(val)).replace(/\t/g, ' ').replace(/\n/g, ' ').replace(/\r/g, '');
 }
 
 /** Build a CSV row string from an array of values */
